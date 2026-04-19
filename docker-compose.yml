@@ -57,20 +57,6 @@ services:
       timeout: 5s
       retries: 5
 
-  bull-board:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - "3001:3001"
-    environment:
-      - NODE_ENV=development
-      - REDIS_URL=redis://redis:6379
-      - BULL_BOARD_PORT=3001
-    command: sh -c "node -e \"const { setQueues, createServer } = require('@bull-board/express'); const bullExpress = require('@bull-board/express'); setQueues([]); createServer(bullExpress.router);\""
-    networks:
-      - devrelay-net
-
 networks:
   devrelay-net:
     driver: bridge
