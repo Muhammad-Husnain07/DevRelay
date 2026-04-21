@@ -7,10 +7,14 @@ const passport = require('passport');
 const env = require('./config/env');
 const authRoutes = require('./api/authRoutes');
 const workspaceRoutes = require('./api/workspaceRoutes');
+const webhookRoutes = require('./api/webhookRoutes');
+const eventRoutes = require('./api/eventRoutes');
 const { setupSwagger } = require('./config/swagger');
+const { setupBullBoard } = require('./config/bullBoard');
 const { globalLimiter, authLimiter } = require('./middleware/rateLimiter');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const { logger, stream, morganFormat } = require('./utils/logger');
+const { authenticate } = require('./middleware/auth');
 
 require('./config/passport')(passport);
 
@@ -38,8 +42,28 @@ app.get('/api/ping', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/workspaces', workspaceRoutes);
+app.use('/api/workspaces', webhookRoutes);
+app.use('/api/workspaces', eventRoutes);
 
 setupSwagger(app);
+
+const bullBoardAuthMiddleware = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  authenticate(req, res, (err) => {
+    if (err || !req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    if (req.user.plan !== 'pro') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    next();
+  });
+};
+
+setupBullBoard(app, bullBoardAuthMiddleware);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
