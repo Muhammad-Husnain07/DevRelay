@@ -59,10 +59,30 @@ const schedulerQueue = new Queue('scheduler', {
   }
 });
 
+const genericJobQueue = new Queue('generic-job', {
+  connection,
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: {
+      type: 'exponential',
+      delay: 2000
+    },
+    removeOnComplete: {
+      count: 50,
+      age: 24 * 3600
+    },
+    removeOnFail: {
+      count: 100,
+      age: 7 * 24 * 3600
+    }
+  }
+});
+
 async function getQueueStats(queueName) {
   const queue = queueName === 'webhook-delivery' ? webhookDeliveryQueue 
     : queueName === 'email' ? emailQueue
     : queueName === 'scheduler' ? schedulerQueue
+    : queueName === 'generic-job' ? genericJobQueue
     : null;
     
   if (!queue) return null;
@@ -89,5 +109,6 @@ module.exports = {
   webhookDeliveryQueue,
   emailQueue,
   schedulerQueue,
+  genericJobQueue,
   getQueueStats
 };
