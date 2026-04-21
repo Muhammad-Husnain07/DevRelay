@@ -10,7 +10,7 @@ const workspaceRoutes = require('./api/workspaceRoutes');
 const webhookRoutes = require('./api/webhookRoutes');
 const eventRoutes = require('./api/eventRoutes');
 const receiverRoutes = require('./api/receiverRoutes');
-const inboundRoutes = require('./api/receiverRoutes');
+const jobRoutes = require('./api/jobRoutes');
 const { setupSwagger } = require('./config/swagger');
 const { setupBullBoard } = require('./config/bullBoard');
 const { globalLimiter, authLimiter } = require('./middleware/rateLimiter');
@@ -49,6 +49,7 @@ app.use('/api/workspaces', workspaceRoutes);
 app.use('/api/workspaces', webhookRoutes);
 app.use('/api/workspaces', eventRoutes);
 app.use('/api/workspaces', receiverRoutes);
+app.use('/api/workspaces', jobRoutes);
 
 setupSwagger(app);
 
