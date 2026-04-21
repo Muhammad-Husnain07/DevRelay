@@ -9,6 +9,8 @@ const authRoutes = require('./api/authRoutes');
 const workspaceRoutes = require('./api/workspaceRoutes');
 const webhookRoutes = require('./api/webhookRoutes');
 const eventRoutes = require('./api/eventRoutes');
+const receiverRoutes = require('./api/receiverRoutes');
+const inboundRoutes = require('./api/receiverRoutes');
 const { setupSwagger } = require('./config/swagger');
 const { setupBullBoard } = require('./config/bullBoard');
 const { globalLimiter, authLimiter } = require('./middleware/rateLimiter');
@@ -40,10 +42,13 @@ app.get('/api/ping', (req, res) => {
   res.status(200).json({ message: 'pong' });
 });
 
+app.use('/receive', receiverRoutes);
+
 app.use('/api/auth', authRoutes);
 app.use('/api/workspaces', workspaceRoutes);
 app.use('/api/workspaces', webhookRoutes);
 app.use('/api/workspaces', eventRoutes);
+app.use('/api/workspaces', receiverRoutes);
 
 setupSwagger(app);
 
