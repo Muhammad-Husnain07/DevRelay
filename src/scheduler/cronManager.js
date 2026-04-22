@@ -5,6 +5,7 @@ const httpRequestAction = require('./actions/httpRequestAction');
 const enqueueJobAction = require('./actions/enqueueJobAction');
 const webhookEventAction = require('./actions/webhookEventAction');
 const { getEmitter } = require('../socket/emitter');
+const { evaluateAllRules } = require('../services/alertEngine');
 
 const actionHandlers = {
   'http-request': httpRequestAction,
@@ -29,6 +30,19 @@ class CronManager {
     console.log(`[CronManager] Loaded ${jobs.length} scheduled jobs`);
     
     await this.detectMissedJobs();
+    
+    cron.schedule('* * * * *', async () => {
+      const Workspace = require('../models/Workspace');
+      const workspaces = await Workspace.find({});
+      for (const ws of workspaces) {
+        try {
+          await evaluateAllRules(ws._id);
+        } catch (err) {
+          console.error('[AlertEngine] Error:', err.message);
+        }
+      }
+    });
+    console.log('[CronManager] Alert evaluation scheduled every minute');
   }
 
   async scheduleJob(scheduledJob) {
