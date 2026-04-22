@@ -12,6 +12,7 @@ const eventRoutes = require('./api/eventRoutes');
 const receiverRoutes = require('./api/receiverRoutes');
 const jobRoutes = require('./api/jobRoutes');
 const schedulerRoutes = require('./api/schedulerRoutes');
+const emailRoutes = require('./api/emailRoutes');
 const { setupSwagger } = require('./config/swagger');
 const { setupBullBoard } = require('./config/bullBoard');
 const { globalLimiter, authLimiter } = require('./middleware/rateLimiter');
@@ -52,6 +53,7 @@ app.use('/api/workspaces', eventRoutes);
 app.use('/api/workspaces', receiverRoutes);
 app.use('/api/workspaces', jobRoutes);
 app.use('/api/workspaces', schedulerRoutes);
+app.use('/api/workspaces', emailRoutes);
 app.use('/api/scheduler', schedulerRoutes);
 
 const bullBoardAuthMiddleware = (req, res, next) => {
