@@ -5,6 +5,8 @@ const { redisClient } = require('./redis');
 const WebhookEndpoint = require('../models/WebhookEndpoint');
 const WebhookDelivery = require('../models/WebhookDelivery');
 const WebhookEvent = require('../models/WebhookEvent');
+const { getEmitter } = require('../socket/emitter');
+const { incrementCounter } = require('../services/metricsService');
 
 const connection = {
   connection: redisClient,
@@ -12,11 +14,12 @@ const connection = {
 };
 
 async function deliverWebhook(job) {
-  const { deliveryId, endpointId, eventId } = job.data;
+  const { deliveryId, endpointId, eventId, attempt = 1 } = job.data;
   
   let delivery;
   let endpoint;
   let event;
+  let emitter;
   
   try {
     delivery = await WebhookDelivery.findById(deliveryId);
@@ -35,6 +38,9 @@ async function deliverWebhook(job) {
       await markDeliveryFailed(delivery, 'Endpoint is inactive');
       return;
     }
+    
+    emitter = getEmitter();
+    if (emitter) emitter.emitToUser(job.data.userId, 'delivery:started', { deliveryId, endpointId, attempt });
     
     event = await WebhookEvent.findById(eventId);
     const payload = delivery.requestBody;
@@ -78,6 +84,16 @@ async function deliverWebhook(job) {
       
       await delivery.save();
       await endpoint.updateStats(isSuccess, responseTimeMs);
+      await incrementCounter(endpoint.workspaceId, 'deliveries');
+      
+      if (emitter) {
+        if (isSuccess) {
+          emitter.emitToUser(job.data.userId, 'delivery:success', { deliveryId, responseStatus: response.status, durationMs: responseTimeMs });
+          emitter.emitToWorkspace(endpoint.workspaceId, 'metrics:tick', { deliveries: 1, type: 'delivery' });
+        } else {
+          emitter.emitToUser(job.data.userId, 'delivery:failed', { deliveryId, error: 'Non-2xx response', attempt });
+        }
+      }
       
       if (event) {
         if (isSuccess) {
@@ -94,12 +110,19 @@ async function deliverWebhook(job) {
       const responseTimeMs = Date.now() - startTime;
       await markDeliveryFailed(delivery, axiosError.message);
       await endpoint.updateStats(false, responseTimeMs);
+      
+      if (emitter) {
+        emitter.emitToUser(job.data.userId, 'delivery:failed', { deliveryId, error: axiosError.message, attempt });
+      }
     }
     
   } catch (error) {
     console.error(`[WebhookDelivery] Error processing ${deliveryId}:`, error.message);
     if (delivery) {
       await markDeliveryFailed(delivery, error.message);
+    }
+    if (emitter) {
+      emitter.emitToUser(job.data.userId, 'delivery:failed', { deliveryId, error: error.message, attempt });
     }
   }
 }

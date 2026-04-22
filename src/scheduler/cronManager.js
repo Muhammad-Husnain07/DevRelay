@@ -4,6 +4,7 @@ const ScheduledJobRun = require('../models/ScheduledJobRun');
 const httpRequestAction = require('./actions/httpRequestAction');
 const enqueueJobAction = require('./actions/enqueueJobAction');
 const webhookEventAction = require('./actions/webhookEventAction');
+const { getEmitter } = require('../socket/emitter');
 
 const actionHandlers = {
   'http-request': httpRequestAction,
@@ -78,9 +79,12 @@ class CronManager {
   async executeJob(scheduledJob) {
     const startTime = Date.now();
     let runRecord;
+    const emitter = getEmitter();
     
     try {
       console.log(`[CronManager] Executing job: ${scheduledJob.name}`);
+      
+      if (emitter) emitter.emitToWorkspace(scheduledJob.workspaceId, 'cron:fired', { scheduledJobId: scheduledJob._id, name: scheduledJob.name, triggeredAt: new Date(startTime) });
       
       const handler = actionHandlers[scheduledJob.action.type];
       
@@ -108,6 +112,8 @@ class CronManager {
         actionResult: result
       });
       
+      if (emitter) emitter.emitToWorkspace(scheduledJob.workspaceId, 'cron:completed', { scheduledJobId: scheduledJob._id, name: scheduledJob.name, duration, result });
+      
       console.log(`[CronManager] Job ${scheduledJob.name} completed successfully in ${duration}ms`);
       
     } catch (error) {
@@ -124,6 +130,8 @@ class CronManager {
         status: 'failed',
         error: error.message
       });
+      
+      if (emitter) emitter.emitToWorkspace(scheduledJob.workspaceId, 'cron:failed', { scheduledJobId: scheduledJob._id, name: scheduledJob.name, error: error.message });
       
       console.error(`[CronManager] Job ${scheduledJob.name} failed:`, error.message);
     }

@@ -3,6 +3,10 @@ const env = require('./config/env');
 const database = require('./config/database');
 const { redisClient } = require('./config/redis');
 const { createTransport } = require('./services/emailService');
+const { socketServer } = require('./socket/socketServer');
+const cronManager = require('./scheduler/cronManager');
+const { start: startQuotaWorker } = require('./workers/quotaResetWorker');
+const { start: startMetricsAggregator } = require('./workers/metricsAggregator');
 const winston = require('winston');
 
 const logger = winston.createLogger({
@@ -39,6 +43,15 @@ async function start() {
       console.log(`[Server] Environment: ${env.nodeEnv}`);
       console.log(`[Server] Health check: http://localhost:${env.port}/api/health`);
     });
+
+    socketServer(server);
+    console.log('[Socket] Server initialized');
+
+    cronManager.loadAll();
+    console.log('[Cron] Manager loaded');
+
+    startQuotaWorker();
+    startMetricsAggregator();
 
     const gracefulShutdown = async (signal) => {
       console.log(`\n[Server] Received ${signal}. Shutting down gracefully...`);

@@ -2,6 +2,8 @@ const { Worker } = require('bullmq');
 const axios = require('axios');
 const { redisClient } = require('./redis');
 const Job = require('../models/Job');
+const { getEmitter } = require('../socket/emitter');
+const { incrementCounter } = require('../services/metricsService');
 
 const connection = {
   connection: redisClient,
@@ -68,9 +70,11 @@ const handlers = {
 };
 
 async function processJob(job) {
-  const { jobId, handler, payload, workspaceId, definitionId, maxAttempts, timeout } = job.data;
+  const { jobId, handler, payload, workspaceId, definitionId, maxAttempts, timeout, userId } = job.data;
   
   let jobRecord;
+  let emitter;
+  const startTime = Date.now();
   
   try {
     jobRecord = await Job.findById(jobId);
@@ -78,6 +82,9 @@ async function processJob(job) {
       console.error(`[GenericJobWorker] Job not found: ${jobId}`);
       return;
     }
+    
+    emitter = getEmitter();
+    if (emitter) emitter.emitToUser(userId, 'job:started', { jobId, name: handler });
     
     await jobRecord.markStarted();
     
@@ -88,8 +95,15 @@ async function processJob(job) {
     }
     
     const result = await handlerFn(payload);
+    const duration = Date.now() - startTime;
     
     await jobRecord.markCompleted(result);
+    if (workspaceId) await incrementCounter(workspaceId, 'jobs');
+    
+    if (emitter) {
+      emitter.emitToUser(userId, 'job:completed', { jobId, result, duration });
+      emitter.emitToWorkspace(workspaceId, 'metrics:tick', { jobs: 1, type: 'job' });
+    }
     
     console.log(`[GenericJobWorker] Job ${jobId} completed successfully`);
     
@@ -100,6 +114,10 @@ async function processJob(job) {
     
     if (jobRecord) {
       await jobRecord.markFailed(error.message, error.stack);
+    }
+    
+    if (emitter) {
+      emitter.emitToUser(userId, 'job:failed', { jobId, error: error.message });
     }
     
     throw error;
