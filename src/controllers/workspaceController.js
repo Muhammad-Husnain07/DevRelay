@@ -1,5 +1,6 @@
 const Workspace = require('../models/Workspace');
 const User = require('../models/User');
+const EmailTemplate = require('../models/EmailTemplate');
 
 exports.createWorkspace = async (req, res) => {
   try {
@@ -17,6 +18,9 @@ exports.createWorkspace = async (req, res) => {
         role: 'owner'
       }]
     });
+
+    const defaultTemplates = EmailTemplate.getDefaults(workspace._id);
+    await EmailTemplate.insertMany(defaultTemplates);
 
     res.status(201).json({ workspace });
   } catch (error) {

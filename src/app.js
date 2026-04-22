@@ -2,6 +2,7 @@ const app = require('./server');
 const env = require('./config/env');
 const database = require('./config/database');
 const { redisClient } = require('./config/redis');
+const { createTransport } = require('./services/emailService');
 const winston = require('winston');
 
 const logger = winston.createLogger({
@@ -29,6 +30,9 @@ async function start() {
 
     await redisClient.ping();
     console.log('[Redis] Connected');
+
+    await createTransport();
+    console.log('[Email] Service initialized');
 
     const server = app.listen(env.port, () => {
       console.log(`[Server] DevRelay running on port ${env.port}`);
