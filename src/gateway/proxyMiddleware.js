@@ -1,8 +1,8 @@
 const axios = require('axios');
 const GatewayRoute = require('../models/GatewayRoute');
 const { authPlugin } = require('./plugins/authPlugin');
-const { rateLimitPlugin } = require('./plugins/rateLimitPlugin');
 const { requestIdPlugin, logPlugin } = require('./plugins/logPlugin');
+const { checkRateLimit, getRateLimitHeaders } = require('../services/rateLimitService');
 
 const matchRoute = (path, routes) => {
   const sorted = [...routes].sort((a, b) => a.priority - b.priority);
@@ -15,7 +15,7 @@ const matchRoute = (path, routes) => {
   return null;
 };
 
-const proxyRequest = async (req, res, route, requestId) => {
+const proxyRequest = async (req, res, route, requestId, consumerId) => {
   let upstreamPath = req.originalUrl.replace(/^\/gw\/[^\/]+/, '');
   if (route.stripPath) {
     upstreamPath = upstreamPath.replace(new RegExp(`^${route.path}`), '') || '/';
@@ -26,6 +26,7 @@ const proxyRequest = async (req, res, route, requestId) => {
   const headers = { ...req.headers };
   delete headers['host'];
   delete headers['connection'];
+  delete headers['x-consumer-id'];
 
   const startTime = Date.now();
 
@@ -56,11 +57,11 @@ const proxyRequest = async (req, res, route, requestId) => {
 
     response.data.pipe(res);
 
-    await logPlugin(req, res, route, { upstreamUrl, durationMs });
+    await logPlugin(req, res, route, { upstreamUrl, durationMs, consumerId });
 
   } catch (error) {
     const durationMs = Date.now() - startTime;
-    await logPlugin(req, res, route, { upstreamUrl, durationMs, error: error.message });
+    await logPlugin(req, res, route, { upstreamUrl, durationMs, error: error.message, consumerId });
     res.status(502).json({ error: 'Upstream error', message: error.message });
   }
 };
@@ -85,11 +86,21 @@ module.exports = async (req, res) => {
     return res.status(401).json({ error: authResult.error });
   }
 
-  const rateResult = await rateLimitPlugin(req, res, route);
+  requestIdPlugin(req, res);
+
+  const consumerId = req.headers['x-consumer-id'] || req.consumerId || 'anonymous';
+  const rateResult = await checkRateLimit(consumerId, route._id, route.workspaceId);
+
+  Object.entries(getRateLimitHeaders(rateResult)).forEach(([key, value]) => {
+    res.setHeader(key, value);
+  });
+
   if (!rateResult.allowed) {
-    return res.status(429).json({ error: rateResult.error });
+    if (rateResult.limitType === 'quota') {
+      return res.status(403).json({ error: 'Monthly quota exceeded', resetAt: rateResult.resetAt });
+    }
+    return res.status(429).json({ error: 'Rate limit exceeded', retryAfter: rateResult.retryAfter });
   }
 
-  requestIdPlugin(req, res);
-  await proxyRequest(req, res, route, req.requestId);
+  await proxyRequest(req, res, route, req.requestId, consumerId);
 };

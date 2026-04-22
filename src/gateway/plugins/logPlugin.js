@@ -16,7 +16,7 @@ exports.logPlugin = async (req, res, route, data = {}) => {
         method: req.method,
         path: req.originalUrl,
         upstreamUrl: data.upstreamUrl || route.upstream.url,
-        consumerId: req.consumerId || 'unknown',
+        consumerId: data.consumerId || req.consumerId || 'unknown',
         statusCode: res.statusCode || 200,
         requestSizeBytes: req.headers['content-length'] || 0,
         responseSizeBytes: parseInt(res.getHeader('content-length') || '0'),

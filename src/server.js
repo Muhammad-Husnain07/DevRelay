@@ -15,6 +15,7 @@ const schedulerRoutes = require('./api/schedulerRoutes');
 const emailRoutes = require('./api/emailRoutes');
 const gatewayRoutes = require('./api/gatewayRoutes');
 const gatewayProxy = require('./api/gatewayProxy');
+const consumerRoutes = require('./api/consumerRoutes');
 const { setupSwagger } = require('./config/swagger');
 const { setupBullBoard } = require('./config/bullBoard');
 const { globalLimiter, authLimiter } = require('./middleware/rateLimiter');
@@ -57,6 +58,7 @@ app.use('/api/workspaces', jobRoutes);
 app.use('/api/workspaces', schedulerRoutes);
 app.use('/api/workspaces', emailRoutes);
 app.use('/api/workspaces', gatewayRoutes);
+app.use('/api/workspaces', consumerRoutes);
 app.use('/api/scheduler', schedulerRoutes);
 app.use('/gw', gatewayProxy);
 
