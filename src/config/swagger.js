@@ -8,17 +8,37 @@ const options = {
     info: {
       title: 'DevRelay API',
       version: '1.0.0',
-      description: 'Self-hosted backend infrastructure platform with webhook delivery, job queues, cron scheduling, and API gateway',
+      description: 'Self-hosted backend infrastructure platform with webhook delivery, job queues, cron scheduling, and API gateway. Provides webhook endpoints, generic job processing, scheduled tasks, email templates, API gateway with rate limiting, and real-time alerting.',
       contact: {
         name: 'Muhammad Husnain',
         email: 'muhammad.husnain.dev@gmail.com'
+      },
+      license: {
+        name: 'MIT',
+        url: 'https://opensource.org/licenses/MIT'
       }
     },
     servers: [
       {
         url: 'http://localhost:3000',
         description: 'Development server'
+      },
+      {
+        url: 'https://api.devrelay.io',
+        description: 'Production server'
       }
+    ],
+    tags: [
+      { name: 'Auth', description: 'Authentication and user management' },
+      { name: 'Workspaces', description: 'Multi-tenant workspace operations' },
+      { name: 'Webhooks', description: 'Webhook endpoints and deliveries' },
+      { name: 'Events', description: 'Inbound webhook events' },
+      { name: 'Jobs', description: 'Generic job queue processing' },
+      { name: 'Scheduler', description: 'Cron job scheduling' },
+      { name: 'Email', description: 'Email templates and queue' },
+      { name: 'Gateway', description: 'API gateway and proxying' },
+      { name: 'Metrics', description: 'Real-time metrics and statistics' },
+      { name: 'Alerts', description: 'Alert rules and history' }
     ],
     components: {
       securitySchemes: {
@@ -30,7 +50,8 @@ const options = {
         apiKey: {
           type: 'apiKey',
           in: 'header',
-          name: 'x-api-key'
+          name: 'X-API-Key',
+          description: 'API key authentication'
         }
       },
       schemas: {
@@ -125,6 +146,56 @@ const options = {
           type: 'object',
           properties: {
             error: { type: 'string' }
+          }
+        },
+        WebhookEndpoint: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            name: { type: 'string' },
+            url: { type: 'string' },
+            events: { type: 'array', items: { type: 'string' } },
+            isActive: { type: 'boolean' },
+            timeoutMs: { type: 'number' }
+          }
+        },
+        Job: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            name: { type: 'string' },
+            status: { type: 'string', enum: ['waiting', 'processing', 'completed', 'failed'] },
+            handler: { type: 'string' },
+            result: { type: 'object' }
+          }
+        },
+        ScheduledJob: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            name: { type: 'string' },
+            cronExpression: { type: 'string' },
+            isActive: { type: 'boolean' }
+          }
+        },
+        GatewayRoute: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            name: { type: 'string' },
+            path: { type: 'string' },
+            upstream: { type: 'object' },
+            isActive: { type: 'boolean' }
+          }
+        },
+        AlertRule: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            name: { type: 'string' },
+            condition: { type: 'object' },
+            severity: { type: 'string', enum: ['info', 'warning', 'critical'] },
+            isActive: { type: 'boolean' }
           }
         }
       }

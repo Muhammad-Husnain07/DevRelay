@@ -54,5 +54,6 @@ const webhookDeliverySchema = new mongoose.Schema({
 webhookDeliverySchema.index({ endpointId: 1, createdAt: -1 });
 webhookDeliverySchema.index({ workspaceId: 1, createdAt: -1 });
 webhookDeliverySchema.index({ eventId: 1 });
+webhookDeliverySchema.index({ status: 1, workspaceId: 1 });
 
 module.exports = mongoose.model('WebhookDelivery', webhookDeliverySchema);

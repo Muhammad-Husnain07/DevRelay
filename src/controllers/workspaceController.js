@@ -1,6 +1,7 @@
 const Workspace = require('../models/Workspace');
 const User = require('../models/User');
 const EmailTemplate = require('../models/EmailTemplate');
+const cache = require('../utils/cache');
 
 exports.createWorkspace = async (req, res) => {
   try {
@@ -46,8 +47,14 @@ exports.getWorkspaces = async (req, res) => {
 
 exports.getWorkspace = async (req, res) => {
   try {
-    const workspace = req.workspace;
-    await workspace.populate('members.userId', 'name email avatar');
+    const workspace = await cache.withCache(
+      `workspace:${req.workspace.slug}`,
+      60,
+      async () => {
+        await req.workspace.populate('members.userId', 'name email avatar');
+        return req.workspace;
+      }
+    );
 
     res.json({ workspace });
   } catch (error) {
@@ -71,6 +78,7 @@ exports.updateWorkspace = async (req, res) => {
     }
 
     await workspace.save();
+    await cache.del(`workspace:${workspace.slug}`);
 
     res.json({ workspace });
   } catch (error) {

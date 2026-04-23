@@ -9,7 +9,9 @@ let retryCount = 0;
 async function connectWithRetry() {
   try {
     await mongoose.connect(env.mongodbUri, {
-      maxPoolSize: 10,
+      maxPoolSize: 20,
+      minPoolSize: 5,
+      maxIdleTimeMS: 30000,
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000
     });

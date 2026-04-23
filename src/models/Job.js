@@ -73,6 +73,7 @@ const jobSchema = new mongoose.Schema({
 jobSchema.index({ workspaceId: 1, status: 1 });
 jobSchema.index({ workspaceId: 1, createdAt: -1 });
 jobSchema.index({ workspaceId: 1, name: 1 });
+jobSchema.index({ bullJobId: 1 });
 
 jobSchema.methods.markStarted = async function() {
   this.status = 'active';
