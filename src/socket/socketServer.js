@@ -1,8 +1,10 @@
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const Workspace = require('../models/Workspace');
+const { getSystemStats } = require('../services/systemHealthService');
 
 let io = null;
+let adminStatsInterval = null;
 
 const socketServer = (httpServer) => {
   io = new Server(httpServer, {
@@ -48,14 +50,40 @@ const socketServer = (httpServer) => {
       socket.leave(`ws:${workspaceId}`);
     });
 
+    socket.on('join-admin', async () => {
+      if (socket.user.role === 'admin') {
+        socket.join('admin');
+        console.log(`[Socket] Admin ${socket.userId} joined admin room`);
+      } else {
+        socket.emit('error', { message: 'Admin access required' });
+      }
+    });
+
     socket.on('disconnect', () => {
       console.log(`[Socket] Disconnected: ${socket.userId}`);
     });
   });
+
+  adminStatsInterval = setInterval(async () => {
+    if (io) {
+      try {
+        const stats = await getSystemStats();
+        io.to('admin').emit('system:stats', stats);
+      } catch (err) {
+        console.error('[Socket] Stats emit error:', err.message);
+      }
+    }
+  }, 10000);
 
   return io;
 };
 
 const getIO = () => io;
 
-module.exports = { socketServer, getIO };
+const emitToAdmin = (event, data) => {
+  if (io) {
+    io.to('admin').emit(event, data);
+  }
+};
+
+module.exports = { socketServer, getIO, emitToAdmin };

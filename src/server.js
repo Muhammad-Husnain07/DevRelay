@@ -20,6 +20,7 @@ const gatewayProxy = require('./api/gatewayProxy');
 const consumerRoutes = require('./api/consumerRoutes');
 const metricsRoutes = require('./api/metricsRoutes');
 const alertRoutes = require('./api/alertRoutes');
+const adminRoutes = require('./api/adminRoutes');
 const { setupSwagger } = require('./config/swagger');
 const { setupBullBoard } = require('./config/bullBoard');
 const { globalLimiter, authLimiter } = require('./middleware/rateLimiter');
@@ -121,6 +122,7 @@ app.use('/api/workspaces', consumerRoutes);
 app.use('/api/workspaces', metricsRoutes);
 app.use('/api/workspaces', alertRoutes);
 app.use('/api/scheduler', schedulerRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/gw', gatewayProxy);
 
 const bullBoardAuthMiddleware = (req, res, next) => {
