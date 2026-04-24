@@ -1,6 +1,6 @@
 const nodemailer = require('nodemailer');
 const handlebars = require('handlebars');
-const env = require('./env');
+const env = require('../config/env');
 
 let transporter = null;
 let testAccount = null;

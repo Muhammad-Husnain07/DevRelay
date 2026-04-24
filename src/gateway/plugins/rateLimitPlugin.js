@@ -1,4 +1,4 @@
-const { redisClient } = require('../config/redis');
+const { redisClient } = require('../../config/redis');
 const { v4: uuidv4 } = require('uuid');
 
 exports.rateLimitPlugin = async (req, res, route) => {

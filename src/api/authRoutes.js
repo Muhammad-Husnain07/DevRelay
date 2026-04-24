@@ -211,7 +211,7 @@ router.get('/me', authenticate, authController.getMe);
  *               prefix: dr_sk_abc
  *               message: Store this key securely - it cannot be retrieved again
  */
-router.post('/keys', authenticate, authController.createApiKey);
+router.post('/keys', authenticate, authController.generateApiKey);
 router.get('/keys', authenticate, authController.listApiKeys);
 
 /**
@@ -235,6 +235,6 @@ router.get('/keys', authenticate, authController.listApiKeys);
  *       404:
  *         description: API key not found
  */
-router.delete('/keys/:prefix', authenticate, authController.deleteApiKey);
+router.delete('/keys/:prefix', authenticate, authController.revokeApiKey);
 
 module.exports = router;

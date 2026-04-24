@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const ApiKey = require('../models/ApiKey');
+const ApiKey = require('../../models/ApiKey');
 
 exports.authPlugin = async (req, res, route) => {
   if (!route.auth.required || route.auth.type === 'none') {

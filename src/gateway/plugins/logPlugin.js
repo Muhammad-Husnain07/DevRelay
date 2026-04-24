@@ -1,4 +1,4 @@
-const GatewayLog = require('../models/GatewayLog');
+const GatewayLog = require('../../models/GatewayLog');
 const { v4: uuidv4 } = require('uuid');
 
 exports.requestIdPlugin = (req, res) => {

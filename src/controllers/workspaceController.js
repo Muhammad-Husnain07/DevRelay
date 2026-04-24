@@ -197,6 +197,17 @@ exports.getStats = async (req, res) => {
   }
 };
 
+exports.getMembers = async (req, res) => {
+  try {
+    const workspace = req.workspace;
+    await workspace.populate('members.userId', 'name email avatar');
+    res.json({ members: workspace.members });
+  } catch (error) {
+    console.error('Get members error:', error);
+    res.status(500).json({ error: 'Failed to fetch members' });
+  }
+};
+
 exports.updateMemberRole = async (req, res) => {
   try {
     const workspace = req.workspace;

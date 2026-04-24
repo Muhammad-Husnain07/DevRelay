@@ -1,7 +1,7 @@
-const { redisClient } = require('../../config/redis');
-const AlertRule = require('../../models/AlertRule');
-const Alert = require('../../models/Alert');
-const { getEmitter } = require('../../socket/emitter');
+const { redisClient } = require('../config/redis');
+const AlertRule = require('../models/AlertRule');
+const Alert = require('../models/Alert');
+const { getEmitter } = require('../socket/emitter');
 
 const evaluators = {
   webhook_failure_rate: require('./alertEvaluators/webhookFailureRate'),
