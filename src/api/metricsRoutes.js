@@ -8,6 +8,25 @@ const { getLiveStats, getTimeSeries, getSummary } = require('../services/metrics
 router.use(authenticate);
 router.param('workspaceSlug', resolveWorkspace);
 
+/**
+ * @swagger
+ * /api/workspaces/{workspaceSlug}/metrics/live:
+ *   get:
+ *     summary: Get live metrics
+ *     description: Get real-time metrics for a workspace
+ *     tags: [Metrics]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: workspaceSlug
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Live metrics
+ */
 router.get('/:workspaceSlug/metrics/live', asyncHandler(async (req, res) => {
   const workspace = res.locals.workspace;
   const stats = await getLiveStats(workspace._id);

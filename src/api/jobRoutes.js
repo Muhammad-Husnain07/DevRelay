@@ -10,10 +10,38 @@ router.use(authenticate);
 router.use('/:workspaceSlug', resolveWorkspace);
 
 /**
- * POST /api/workspaces/{workspaceSlug}/jobs
- * @summary Enqueue a new job
- * @tags Jobs
- * @security bearerAuth
+ * @swagger
+ * /api/workspaces/{workspaceSlug}/jobs:
+ *   post:
+ *     summary: Enqueue a new job
+ *     description: Add a new job to the queue for processing
+ *     tags: [Jobs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: workspaceSlug
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               payload:
+ *                 type: object
+ *               priority:
+ *                 type: number
+ *               delay:
+ *                 type: number
+ *     responses:
+ *       201:
+ *         description: Job enqueued
  */
 router.post('/:workspaceSlug/jobs', async (req, res) => {
   try {

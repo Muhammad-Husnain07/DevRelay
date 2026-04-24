@@ -11,10 +11,23 @@ router.use(authenticate);
 router.use('/:workspaceSlug', resolveWorkspace);
 
 /**
- * GET /api/workspaces/{workspaceSlug}/email-templates
- * @summary List email templates
- * @tags Email
- * @security bearerAuth
+ * @swagger
+ * /api/workspaces/{workspaceSlug}/email-templates:
+ *   get:
+ *     summary: List email templates
+ *     description: Get all email templates for a workspace
+ *     tags: [Email]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: workspaceSlug
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of email templates
  */
 router.get('/:workspaceSlug/email-templates', async (req, res) => {
   try {

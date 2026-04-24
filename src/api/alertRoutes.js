@@ -10,6 +10,25 @@ const { evaluateRule, evaluateAllRules, fireAlert } = require('../services/alert
 router.use(authenticate);
 router.param('workspaceSlug', resolveWorkspace);
 
+/**
+ * @swagger
+ * /api/workspaces/{workspaceSlug}/alerts/rules:
+ *   get:
+ *     summary: List alert rules
+ *     description: Get all alert rules for a workspace
+ *     tags: [Alerts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: workspaceSlug
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of alert rules
+ */
 router.get('/:workspaceSlug/alerts/rules', asyncHandler(async (req, res) => {
   const workspace = res.locals.workspace;
   const rules = await AlertRule.find({ workspaceId: workspace._id }).sort({ createdAt: -1 });

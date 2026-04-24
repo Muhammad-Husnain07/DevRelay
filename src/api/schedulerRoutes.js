@@ -11,10 +11,23 @@ router.use(authenticate);
 router.use('/:workspaceSlug', resolveWorkspace);
 
 /**
- * GET /api/workspaces/{workspaceSlug}/scheduled-jobs
- * @summary List scheduled jobs
- * @tags Scheduler
- * @security bearerAuth
+ * @swagger
+ * /api/workspaces/{workspaceSlug}/scheduled-jobs:
+ *   get:
+ *     summary: List scheduled jobs
+ *     description: Get all scheduled jobs for a workspace
+ *     tags: [Scheduler]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: workspaceSlug
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of scheduled jobs
  */
 router.get('/:workspaceSlug/scheduled-jobs', async (req, res) => {
   try {

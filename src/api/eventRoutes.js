@@ -1,21 +1,34 @@
 const express = require('express');
 const router = express.Router();
-const { dispatchEvent, retryDelivery } = require('../services/webhookService');
 const WebhookEvent = require('../models/WebhookEvent');
-const WebhookDelivery = require('../models/WebhookDelivery');
-const { authenticate } = require('../middleware/auth');
-const { resolveWorkspace } = require('../middleware/workspace');
-
-router.use(authenticate);
-router.use('/:workspaceSlug', resolveWorkspace);
 
 /**
- * POST /api/workspaces/{workspaceSlug}/events
- * @summary Trigger a new webhook event
- * @tags Webhooks
- * @param {string} workspaceSlug.path.required - Workspace slug
- * @param {EventRequest} request.body.required - Event data
- * @return {EventResponse} 201 - Event created
+ * @swagger
+ * /api/workspaces/{workspaceSlug}/events:
+ *   post:
+ *     summary: Create a webhook event
+ *     description: Emit a new webhook event for a workspace
+ *     tags: [Events]
+ *     parameters:
+ *       - in: path
+ *         name: workspaceSlug
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               event:
+ *                 type: string
+ *               payload:
+ *                 type: object
+ *     responses:
+ *       201:
+ *         description: Event created
  */
 router.post('/:workspaceSlug/events', async (req, res) => {
   try {
@@ -38,11 +51,21 @@ router.post('/:workspaceSlug/events', async (req, res) => {
 });
 
 /**
- * GET /api/workspaces/{workspaceSlug}/events
- * @summary List webhook events
- * @tags Webhooks
- * @param {string} workspaceSlug.path.required - Workspace slug
- * @return {EventsListResponse} 200 - List of events
+ * @swagger
+ * /api/workspaces/{workspaceSlug}/events:
+ *   get:
+ *     summary: List webhook events
+ *     description: Get all events for a workspace
+ *     tags: [Events]
+ *     parameters:
+ *       - in: path
+ *         name: workspaceSlug
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of events
  */
 router.get('/:workspaceSlug/events', async (req, res) => {
   try {

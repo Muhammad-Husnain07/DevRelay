@@ -9,6 +9,25 @@ const { resolveWorkspace } = require('../middleware/workspace');
 router.use(authenticate);
 router.param('workspaceSlug', resolveWorkspace);
 
+/**
+ * @swagger
+ * /api/workspaces/{workspaceSlug}/gateway/routes:
+ *   get:
+ *     summary: List API routes
+ *     description: Get all API gateway routes for a workspace
+ *     tags: [Gateway]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: workspaceSlug
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of gateway routes
+ */
 router.get('/:workspaceSlug/gateway/routes', asyncHandler(async (req, res) => {
   const workspace = res.locals.workspace;
   const routes = await GatewayRoute.find({ workspaceId: workspace._id }).sort({ priority: 1 });
