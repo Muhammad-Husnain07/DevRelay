@@ -3,10 +3,10 @@ const router = express.Router();
 const GatewayRoute = require('../models/GatewayRoute');
 const GatewayLog = require('../models/GatewayLog');
 const asyncHandler = require('../utils/asyncHandler');
-const { requireAuth } = require('../middleware/auth');
+const { authenticate } = require('../middleware/auth');
 const { resolveWorkspace } = require('../middleware/workspace');
 
-router.use(requireAuth);
+router.use(authenticate);
 router.param('workspaceSlug', resolveWorkspace);
 
 router.get('/:workspaceSlug/gateway/routes', asyncHandler(async (req, res) => {

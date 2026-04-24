@@ -110,5 +110,11 @@ module.exports = {
   emailQueue,
   schedulerQueue,
   genericJobQueue,
-  getQueueStats
+  getQueueStats,
+  getQueues: () => ({
+    webhookDelivery: webhookDeliveryQueue,
+    email: emailQueue,
+    scheduler: schedulerQueue,
+    genericJob: genericJobQueue
+  })
 };

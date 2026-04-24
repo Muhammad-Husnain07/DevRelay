@@ -38,11 +38,11 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://unpkg.com'],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://unpkg.com'],
       imgSrc: ["'self'", 'data:', 'https:'],
-      connectSrc: ["'self'"],
-      fontSrc: ["'self'"],
+      connectSrc: ["'self'", 'https://cdn.jsdelivr.net', 'https://unpkg.com'],
+      fontSrc: ["'self'", 'https://cdn.jsdelivr.net', 'https://unpkg.com'],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
       frameSrc: ["'none'"]
@@ -69,6 +69,10 @@ app.use(passport.initialize());
 app.use(globalLimiter);
 app.use('/api/auth', authLimiter);
 
+app.get('/', (req, res) => {
+  res.json({ message: 'DevRelay API', version: '1.0.0', docs: '/api/docs' });
+});
+
 app.get('/api/health', async (req, res) => {
   const { redisClient } = require('./config/redis');
   const mongoose = require('mongoose');
@@ -77,13 +81,20 @@ app.get('/api/health', async (req, res) => {
   const queues = getQueues();
   const queueStatus = {};
 
-  for (const [name, queue] of Object.entries(queues)) {
-    try {
-      const counts = await queue.getJobCounts();
-      queueStatus[name] = counts;
-    } catch {
-      queueStatus[name] = { error: 'unavailable' };
+  try {
+    for (const [name, queue] of Object.entries(queues)) {
+      try {
+        const counts = await Promise.race([
+          queue.getJobCounts(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
+        ]);
+        queueStatus[name] = counts;
+      } catch {
+        queueStatus[name] = { error: 'unavailable' };
+      }
     }
+  } catch {
+    queueStatus = { error: 'unable to fetch' };
   }
 
   const mem = process.memoryUsage();
@@ -142,6 +153,7 @@ const bullBoardAuthMiddleware = (req, res, next) => {
 };
 
 setupBullBoard(app, bullBoardAuthMiddleware);
+setupSwagger(app);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

@@ -1,6 +1,8 @@
 const Redis = require('ioredis');
 const env = require('./env');
 
+console.log('[Redis] Initializing with URL:', env.redisUrl);
+
 const redisClient = new Redis(env.redisUrl, {
   maxRetriesPerRequest: 3,
   retryStrategy(times) {

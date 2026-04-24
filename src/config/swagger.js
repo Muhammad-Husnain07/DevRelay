@@ -214,14 +214,20 @@ const options = {
 const specs = swaggerJsdoc(options);
 
 function setupSwagger(app) {
-  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(specs, {
-    customCss: '.swagger-ui .topbar { display: none }',
-    customSiteTitle: 'DevRelay API Docs'
-  }));
+  try {
+    app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(specs, {
+      customCss: '.swagger-ui .topbar { display: none }',
+      customSiteTitle: 'DevRelay API Docs'
+    }));
 
-  app.get('/api/docs.json', (req, res) => {
-    res.json(specs);
-  });
+    app.get('/api/docs.json', (req, res) => {
+      res.json(specs);
+    });
+    
+    console.log('[Swagger] API docs available at /api/docs');
+  } catch (err) {
+    console.error('[Swagger] Setup failed:', err.message);
+  }
 }
 
 module.exports = { setupSwagger, specs };

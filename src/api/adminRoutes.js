@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { requireAdmin } = require('../middleware/requireAdmin');
-const { requireAuth } = require('../middleware/auth');
+const { authenticate } = require('../middleware/auth');
 const { getSystemHealth, getSystemStats, getQueueStatus } = require('../services/systemHealthService');
 const { getQueues } = require('../config/queues');
 const Workspace = require('../models/Workspace');
@@ -10,7 +10,7 @@ const WebhookEndpoint = require('../models/WebhookEndpoint');
 const Job = require('../models/Job');
 const AuditLog = require('../models/AuditLog');
 
-router.use(requireAuth, requireAdmin);
+router.use(authenticate, requireAdmin);
 
 router.get('/health', async (req, res) => {
   const health = await getSystemHealth();

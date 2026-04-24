@@ -6,11 +6,23 @@ const { authenticate } = require('../middleware/auth');
 const { resolveWorkspace } = require('../middleware/workspace');
 
 /**
- * GET /api/workspaces/{workspaceSlug}/webhooks
- * @summary List webhook endpoints
- * @tags Webhooks
- * @security bearerAuth
- * @response {WebhooksListResponse} 200 - List of endpoints
+ * @swagger
+ * /api/workspaces/{workspaceSlug}/webhooks:
+ *   get:
+ *     summary: List webhook endpoints
+ *     description: Get all webhook endpoints for a workspace
+ *     tags: [Webhooks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: workspaceSlug
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of webhook endpoints
  */
 router.get('/:workspaceSlug/webhooks', authenticate, resolveWorkspace, async (req, res) => {
   try {
@@ -25,11 +37,44 @@ router.get('/:workspaceSlug/webhooks', authenticate, resolveWorkspace, async (re
 });
 
 /**
- * POST /api/workspaces/{workspaceSlug}/webhooks
- * @summary Create webhook endpoint
- * @tags Webhooks
- * @security bearerAuth
- * @response {WebhookCreateResponse} 201 - Endpoint created
+ * @swagger
+ * /api/workspaces/{workspaceSlug}/webhooks:
+ *   post:
+ *     summary: Create a webhook endpoint
+ *     description: Create a new webhook endpoint for receiving events
+ *     tags: [Webhooks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: workspaceSlug
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name, url]
+ *             properties:
+ *               name:
+ *                 type: string
+ *               url:
+ *                 type: string
+ *                 format: uri
+ *               events:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               rateLimitPerMinute:
+ *                 type: number
+ *               timeoutMs:
+ *                 type: number
+ *     responses:
+ *       201:
+ *         description: Endpoint created
  */
 router.post('/:workspaceSlug/webhooks', authenticate, resolveWorkspace, async (req, res) => {
   try {

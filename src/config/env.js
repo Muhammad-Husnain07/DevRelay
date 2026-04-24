@@ -3,7 +3,6 @@ require('dotenv').config();
 const requiredEnvVars = [
   'PORT',
   'MONGODB_URI',
-  'REDIS_URL',
   'JWT_SECRET',
   'JWT_EXPIRES_IN',
   'NODE_ENV'
@@ -14,6 +13,7 @@ const optionalEnvVars = [
   'GITHUB_CLIENT_SECRET',
   'GITHUB_CALLBACK_URL',
   'APP_URL',
+  'REDIS_URL',
   'SMTP_HOST',
   'SMTP_PORT',
   'SMTP_USER',
@@ -21,10 +21,11 @@ const optionalEnvVars = [
 ];
 
 function validateEnv() {
-  const missing = requiredEnvVars.filter(key => !process.env[key]);
-
-  if (missing.length > 0) {
-    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+  if (process.env.DOCKER !== 'true') {
+    const missing = requiredEnvVars.filter(key => !process.env[key]);
+    if (missing.length > 0) {
+      throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+    }
   }
 }
 
@@ -32,10 +33,10 @@ validateEnv();
 
 const env = {
   port: parseInt(process.env.PORT, 10) || 3000,
-  mongodbUri: process.env.MONGODB_URI,
-  redisUrl: process.env.REDIS_URL,
-  jwtSecret: process.env.JWT_SECRET,
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN,
+  mongodbUri: process.env.MONGODB_URI || 'mongodb://mongo:27017/devrelay',
+  redisUrl: process.env.REDIS_URL || 'redis://redis:6379',
+  jwtSecret: process.env.JWT_SECRET || 'default-secret',
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   nodeEnv: process.env.NODE_ENV || 'development',
   githubClientId: process.env.GITHUB_CLIENT_ID,
   githubClientSecret: process.env.GITHUB_CLIENT_SECRET,

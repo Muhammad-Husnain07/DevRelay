@@ -1,47 +1,48 @@
 const { BullBoard } = require('@bull-board/api');
-const { BullMQAdapter } = require('@bull-board/api');
 const { ExpressAdapter } = require('@bull-board/express');
 const { getQueues } = require('./queues');
 
-const QUEUES = [
-  new BullMQAdapter(getQueues().webhook || getQueues().webhookDelivery),
-  new BullMQAdapter(getQueues().email),
-  new BullMQAdapter(getQueues().job || getQueues().genericJob),
-  new BullMQAdapter(getQueues().scheduler)
-].filter(q => q);
-
 function setupBullBoard(app, authMiddleware) {
-  if (QUEUES.length === 0) {
+  const queues = getQueues();
+  const queueAdapters = [
+    queues.webhookDelivery,
+    queues.email,
+    queues.genericJob,
+    queues.scheduler
+  ].filter(Boolean);
+
+  if (queueAdapters.length === 0) {
     console.log('[BullBoard] No queues available');
     return;
   }
 
-  const serverAdapter = new ExpressAdapter();
-  serverAdapter.setBasePath('/admin/bull-board');
+  try {
+    const BullMQAdapter = require('@bull-board/api').BullMQAdapter;
+    const QUEUES = queueAdapters.map(q => new BullMQAdapter(q));
 
-  const bullBoard = new BullBoard({
-    queues: QUEUES,
-    serverAdapter
-  });
-
-  bullBoard.setRouter(app);
-
-  app.use('/admin/bull-board/auth', (req, res, next) => {
-    const adminUser = process.env.ADMIN_USER || 'admin';
-    const adminPass = process.env.ADMIN_PASS || 'admin123';
-
-    const validUser = 'admin';
-    const validPass = 'admin123';
-
-    if (req.query.admin === 'true') {
-      req.session = { isAdmin: true };
-      return next();
+    if (QUEUES.length === 0) {
+      console.log('[BullBoard] No adapters created');
+      return;
     }
 
-    res.status(401).json({ error: 'Admin authentication required', hint: '/admin/bull-board/auth?admin=true' });
-  });
+    const serverAdapter = new ExpressAdapter();
+    serverAdapter.setBasePath('/admin/bull-board');
 
-  console.log('[BullBoard] Available at /admin/bull-board (auth: /admin/bull-board/auth?admin=true)');
+    const bullBoard = new BullBoard({
+      queueAdapter: QUEUES[0],
+      serverAdapter,
+      options: {
+        ui: {
+          staticVersion: '6.20.5'
+        }
+      }
+    });
+
+    bullBoard.setRouterEntry(app);
+    console.log('[BullBoard] mounted at /admin/bull-board');
+  } catch (err) {
+    console.log('[BullBoard] skipped:', err.message);
+  }
 }
 
 module.exports = { setupBullBoard };
