@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, Edit, Mail, Webhook, AlertTriangle, Info, AlertCircle, CheckCircle, X, Play, XCircle, Clock } from 'lucide-react';
 import { useWorkspace } from '../../context/WorkspaceContext';
-import { useSocketEvent } from '../../hooks/useSocketEvent';
+import { useSocketEvent } from '../../hooks/useSocket';
 import { listAlertRules, createAlertRule, updateAlertRule, deleteAlertRule, testAlertRule, getAlerts, deleteAlert } from '../../api/resources/alerts';
 import { formatRelative, formatJson } from '../../utils/formatters';
 import StatusBadge from '../../components/ui/StatusBadge';

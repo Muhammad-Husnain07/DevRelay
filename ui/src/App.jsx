@@ -24,7 +24,7 @@ import ApiKeysSettings from './pages/settings/ApiKeys';
 import NotificationsSettings from './pages/settings/Notifications';
 import DangerZoneSettings from './pages/settings/DangerZone';
 import './index.css';
-import { useSocketEvent } from './hooks/useSocketEvent';
+import { useSocketEvent } from './hooks/useSocket';
 import toast from 'react-hot-toast';
 
 const queryClient = new QueryClient({

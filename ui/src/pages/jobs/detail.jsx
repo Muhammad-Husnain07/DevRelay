@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Clock, CheckCircle, XCircle, Loader, RotateCcw, Trash2, Copy, Play, Radio } from 'lucide-react';
 import { useWorkspace } from '../../context/WorkspaceContext';
-import { useSocketEvent } from '../../hooks/useSocketEvent';
+import { useSocketEvent } from '../../hooks/useSocket';
 import { getJob, retryJob, cancelJob } from '../../api/resources/jobs';
 import { formatDateTime, formatDuration, formatJson, formatRelative } from '../../utils/formatters';
 import { useCountUp } from '../../hooks/useCountUp';

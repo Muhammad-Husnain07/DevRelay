@@ -1,4 +1,4 @@
-import { get, post, del } from './client';
+import { get, post, del } from '../client';
 
 export const login = (email, password) => 
   post('/auth/login', { email, password });
