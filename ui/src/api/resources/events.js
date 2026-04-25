@@ -14,3 +14,6 @@ export const listInbound = (slug, params) =>
 
 export const getInbound = (slug, id) => 
   get(`/workspaces/${slug}/inbound/${id}`);
+
+export const getInboundRequests = (slug, id, params) => 
+  get(`/workspaces/${slug}/inbound/${id}/requests`, { params });

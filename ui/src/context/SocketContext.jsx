@@ -9,27 +9,39 @@ export function SocketProvider({ children }) {
   const { token, isAuthenticated } = useAuth();
   const { workspace } = useWorkspace();
   const [socket, setSocket] = useState(null);
+  const [connected, setConnected] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated || !token) {
       if (socket) {
         socket.disconnect();
         setSocket(null);
+        setConnected(false);
       }
       return;
     }
 
     const newSocket = io('/', {
       auth: { token },
-      transports: ['websocket']
+      transports: ['websocket'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
     });
 
     newSocket.on('connect', () => {
       console.log('[Socket] Connected');
+      setConnected(true);
     });
 
     newSocket.on('disconnect', () => {
       console.log('[Socket] Disconnected');
+      setConnected(false);
+    });
+
+    newSocket.on('connect_error', (err) => {
+      console.log('[Socket] Connection error:', err.message);
+      setConnected(false);
     });
 
     setSocket(newSocket);
@@ -50,7 +62,7 @@ export function SocketProvider({ children }) {
   }, [socket, workspace]);
 
   return (
-    <SocketContext.Provider value={{ socket }}>
+    <SocketContext.Provider value={{ socket, connected }}>
       {children}
     </SocketContext.Provider>
   );

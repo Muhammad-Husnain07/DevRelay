@@ -8,13 +8,17 @@ import AppShell from './components/layout/AppShell';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import Dashboard from './pages/Dashboard';
+import WebhookList from './pages/webhooks';
+import InboundList from './pages/inbound';
+import InboundDetail from './pages/inbound/detail';
 import './index.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60,
-      retry: 1
+      staleTime: 30000,
+      retry: 1,
+      refetchOnWindowFocus: false
     }
   }
 });
@@ -31,8 +35,9 @@ export default function App() {
                 <Route path="/register" element={<Register />} />
                 <Route element={<AppShell />}>
                   <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/webhooks" element={<div className="p-8 text-devrelay-text">Webhooks</div>} />
-                  <Route path="/inbound" element={<div className="p-8 text-devrelay-text">Inbound</div>} />
+                  <Route path="/webhooks" element={<WebhookList />} />
+                  <Route path="/inbound" element={<InboundList />} />
+                  <Route path="/inbound/:slug" element={<InboundDetail />} />
                   <Route path="/jobs" element={<div className="p-8 text-devrelay-text">Jobs</div>} />
                   <Route path="/scheduler" element={<div className="p-8 text-devrelay-text">Scheduler</div>} />
                   <Route path="/gateway" element={<div className="p-8 text-devrelay-text">Gateway</div>} />
