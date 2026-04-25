@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Copy, Search, Active } from 'lucide-react';
+import { Plus, Copy, Search, Zap } from 'lucide-react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { listInbound } from '../../api/resources/events';
 import { formatRelative, truncate } from '../../utils/formatters';
