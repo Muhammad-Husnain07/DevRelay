@@ -201,6 +201,33 @@ router.post('/:workspaceSlug/jobs/:id/retry', async (req, res) => {
 });
 
 /**
+ * POST /api/workspaces/{workspaceSlug}/jobs/retry-all
+ * @summary Retry all failed jobs
+ * @tags Jobs
+ * @security bearerAuth
+ */
+router.post('/:workspaceSlug/jobs/retry-all', async (req, res) => {
+  try {
+    const failedJobs = await Job.find({
+      workspaceId: req.workspace._id,
+      status: 'failed'
+    });
+    
+    const results = await Promise.allSettled(
+      failedJobs.map(job => retryJob(job._id))
+    );
+    
+    const succeeded = results.filter(r => r.status === 'fulfilled').length;
+    const failed = results.filter(r => r.status === 'rejected').length;
+    
+    res.json({ succeeded, failed, jobsCount: failedJobs.length });
+  } catch (error) {
+    console.error('Retry all jobs error:', error);
+    res.status(500).json({ error: error.message || 'Failed to retry jobs' });
+  }
+});
+
+/**
  * GET /api/workspaces/{workspaceSlug}/job-definitions
  * @summary List job definitions
  * @tags Jobs

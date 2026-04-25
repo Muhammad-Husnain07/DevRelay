@@ -18,6 +18,12 @@ export function formatRelative(date) {
   return formatDistanceToNow(d, { addSuffix: true });
 }
 
+export function formatRelativeUpdating(initialDate) {
+  if (!initialDate) return '-';
+  const d = new Date(initialDate);
+  return formatDistanceToNow(d, { addSuffix: true });
+}
+
 export function formatDuration(ms) {
   if (!ms && ms !== 0) return '-';
   if (ms < 1000) return `${ms}ms`;
@@ -47,6 +53,10 @@ export function truncateJson(obj, maxLen = 60) {
 
 export function formatJson(obj) {
   if (!obj) return '';
+  if (typeof obj === 'string') {
+    try { return JSON.stringify(JSON.parse(obj), null, 2); } 
+    catch { return obj; }
+  }
   return JSON.stringify(obj, null, 2);
 }
 
@@ -67,4 +77,12 @@ export function formatCountdown(date) {
   if (hours > 0) return `${hours}h ${minutes % 60}m`;
   if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
   return `${seconds}s`;
+}
+
+export function validateCron(expression) {
+  return fetch('/api/v1/scheduler/validate-cron', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ expression })
+  }).then(res => res.json());
 }

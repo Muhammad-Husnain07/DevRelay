@@ -2,17 +2,18 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useDebounce } from '../../hooks/useDebounce';
-import { Play, Pause, Trash2, History, Plus, AlertCircle } from 'lucide-react';
+import { Play, Pause, Trash2, History, Plus, AlertCircle, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { listScheduledJobs, createScheduledJob, toggleScheduledJob, deleteScheduledJob, runScheduledJobNow } from '../../api/resources/scheduler';
-import { formatRelative, formatCountdown, truncate } from '../../utils/formatters';
+import { formatRelative, formatCountdown, truncate, formatDateTime, validateCron } from '../../utils/formatters';
 import StatusBadge from '../../components/ui/StatusBadge';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import SlideOver from '../../components/ui/SlideOver';
 import ConfirmModal from '../../components/ui/ConfirmModal';
+import toast from 'react-hot-toast';
 
-function Countdown({ date }) {
+function CountdownTimer({ date }) {
   const [countdown, setCountdown] = useState(formatCountdown(date));
 
   useEffect(() => {
@@ -23,8 +24,77 @@ function Countdown({ date }) {
     return () => clearInterval(interval);
   }, [date]);
 
-  return <span className="text-devrelay-text">{countdown}</span>;
+  return <span className="text-devrelay-text font-mono">{countdown}</span>;
 }
+
+function CronPreview({ expression, timezone }) {
+  const [preview, setPreview] = useState(null);
+  const [error, setError] = useState(null);
+  const debounced = useDebounce(expression, 500);
+
+  useEffect(() => {
+    if (!debounced || debounced.length < 5) {
+      setPreview(null);
+      setError(null);
+      return;
+    }
+
+    validateCron(debounced)
+      .then(data => {
+        if (data.valid) {
+          setPreview(data);
+          setError(null);
+        } else {
+          setError(data.error || 'Invalid cron expression');
+          setPreview(null);
+        }
+      })
+      .catch(() => {
+        setError('Failed to validate');
+        setPreview(null);
+      });
+  }, [debounced]);
+
+  if (!expression) return null;
+
+  return (
+    <div className="mt-2">
+      {error && (
+        <p className="text-sm text-devrelay-red mb-2">{error}</p>
+      )}
+      {preview && (
+        <div className="bg-devrelay-surface2 rounded p-3 space-y-2">
+          <p className="text-devrelay-text text-sm">{preview.description}</p>
+          {preview.nextRuns?.length > 0 && (
+            <div>
+              <p className="text-devrelay-text-dim text-xs mb-1">Next runs:</p>
+              <div className="space-y-1">
+                {preview.nextRuns.slice(0, 5).map((run, i) => (
+                  <p key={i} className="text-devrelay-text-dim text-xs font-mono">
+                    {new Date(run).toLocaleString()}
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const timezones = [
+  'UTC', 'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles',
+  'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Asia/Tokyo', 'Asia/Shanghai',
+  'Asia/Singapore', 'Australia/Sydney'
+];
+
+const methodColors = {
+  GET: 'bg-devrelay-green/20 text-devrelay-green',
+  POST: 'bg-devrelay-blue/20 text-devrelay-blue',
+  PUT: 'bg-devrelay-amber/20 text-devrelay-amber',
+  DELETE: 'bg-devrelay-red/20 text-devrelay-red'
+};
 
 export default function SchedulerList() {
   const { workspace } = useWorkspace();
@@ -47,14 +117,12 @@ export default function SchedulerList() {
     eventType: '',
     eventPayload: '{}'
   });
-  const [cronError, setCronError] = useState(null);
-  const [cronPreview, setCronPreview] = useState(null);
 
-  const debouncedCron = useDebounce(form.cronExpression, 500);
+  const debouncedSearch = useDebounce(search, 300);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['scheduler', workspace?.slug, search],
-    queryFn: () => listScheduledJobs(workspace.slug, { search }),
+    queryKey: ['scheduler', workspace?.slug, debouncedSearch],
+    queryFn: () => listScheduledJobs(workspace.slug, { search: debouncedSearch }),
     enabled: !!workspace?.slug
   });
 
@@ -64,13 +132,20 @@ export default function SchedulerList() {
       queryClient.invalidateQueries(['scheduler']);
       setCreateOpen(false);
       resetForm();
+      toast.success('Scheduled job created');
     },
-    onError: (err) => alert(err.response?.data?.error || 'Failed to create')
+    onError: (err) => toast.error(err.response?.data?.error || 'Failed to create')
   });
 
   const toggleMutation = useMutation({
     mutationFn: (id) => toggleScheduledJob(workspace.slug, id),
     onSuccess: () => queryClient.invalidateQueries(['scheduler'])
+  });
+
+  const runNowMutation = useMutation({
+    mutationFn: (id) => runScheduledJobNow(workspace.slug, id),
+    onSuccess: () => toast.success('Job triggered'),
+    onError: (err) => toast.error(err.response?.data?.error || 'Failed to trigger')
   });
 
   const deleteMutation = useMutation({
@@ -81,48 +156,16 @@ export default function SchedulerList() {
     }
   });
 
-  const runNowMutation = useMutation({
-    mutationFn: (id) => runScheduledJobNow(workspace.slug, id),
-    onSuccess: () => alert('Job triggered successfully'),
-    onError: (err) => alert(err.response?.data?.error || 'Failed to trigger')
-  });
-
-  useEffect(() => {
-    if (debouncedCron && debouncedCron.length >= 5) {
-      fetch('/api/scheduler/validate-cron', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ expression: debouncedCron })
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data.valid) {
-            setCronError(null);
-            setCronPreview(data);
-          } else {
-            setCronError(data.error || 'Invalid cron expression');
-            setCronPreview(null);
-          }
-        })
-        .catch(() => {
-          setCronError('Failed to validate');
-          setCronPreview(null);
-        });
-    }
-  }, [debouncedCron]);
-
   const resetForm = () => {
     setForm({
       name: '', cronExpression: '', timezone: 'UTC', actionType: 'http',
       httpUrl: '', httpMethod: 'GET', httpHeaders: [], httpBody: '',
       jobName: '', jobPayload: '{}', eventType: '', eventPayload: '{}'
     });
-    setCronError(null);
-    setCronPreview(null);
   };
 
   const handleCreate = () => {
-    if (!form.name || !form.cronExpression || cronError) return;
+    if (!form.name || !form.cronExpression) return;
     const data = {
       name: form.name,
       cronExpression: form.cronExpression,
@@ -146,8 +189,8 @@ export default function SchedulerList() {
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-devrelay-text">Scheduler</h1>
-          <p className="text-devrelay-text-dim mt-1">Cron job scheduling and management</p>
+          <h1 className="text-2xl font-bold text-devrelay-text">Cron Scheduler</h1>
+          <p className="text-devrelay-text-dim mt-1">Scheduled job management</p>
         </div>
         <button
           onClick={() => setCreateOpen(true)}
@@ -197,21 +240,33 @@ export default function SchedulerList() {
                   <td className="px-6 py-4 text-devrelay-green font-mono text-sm">{job.cronExpression}</td>
                   <td className="px-6 py-4 text-devrelay-text-dim text-sm">{job.timezone || 'UTC'}</td>
                   <td className="px-6 py-4 text-devrelay-text-dim text-sm">{job.lastRunAt ? formatRelative(job.lastRunAt) : '-'}</td>
-                  <td className="px-6 py-4 text-devrelay-text text-sm">
-                    {job.isActive ? <Countdown date={job.nextRunAt} /> : '-'}
+                  <td className="px-6 py-4 text-sm">
+                    {job.isActive ? <CountdownTimer date={job.nextRunAt} /> : '-'}
                   </td>
                   <td className="px-6 py-4">
                     <StatusBadge status={job.isActive ? 'success' : 'inactive'} label={job.isActive ? 'Active' : 'Paused'} />
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => runNowMutation.mutate(job._id || job.id)} className="p-2 hover:bg-devrelay-border rounded" title="Run Now">
+                      <button 
+                        onClick={() => runNowMutation.mutate(job._id || job.id)} 
+                        className="p-2 hover:bg-devrelay-border rounded" 
+                        title="Run Now"
+                      >
                         <Play className="w-4 h-4 text-devrelay-green" />
                       </button>
-                      <button onClick={() => toggleMutation.mutate(job._id || job.id)} className="p-2 hover:bg-devrelay-border rounded" title={job.isActive ? 'Pause' : 'Resume'}>
+                      <button 
+                        onClick={() => toggleMutation.mutate(job._id || job.id)} 
+                        className="p-2 hover:bg-devrelay-border rounded" 
+                        title={job.isActive ? 'Pause' : 'Resume'}
+                      >
                         {job.isActive ? <Pause className="w-4 h-4 text-devrelay-amber" /> : <Play className="w-4 h-4 text-devrelay-green" />}
                       </button>
-                      <button onClick={() => setDeleteConfirm(job)} className="p-2 hover:bg-devrelay-border rounded" title="Delete">
+                      <button 
+                        onClick={() => setDeleteConfirm(job)} 
+                        className="p-2 hover:bg-devrelay-border rounded" 
+                        title="Delete"
+                      >
                         <Trash2 className="w-4 h-4 text-devrelay-red" />
                       </button>
                     </div>
@@ -242,23 +297,10 @@ export default function SchedulerList() {
               type="text"
               value={form.cronExpression}
               onChange={(e) => setForm({ ...form, cronExpression: e.target.value })}
-              className={`w-full bg-devrelay-surface2 border rounded px-4 py-2 text-devrelay-text font-mono focus:outline-none ${
-                cronError ? 'border-devrelay-red' : 'border-devrelay-border focus:border-devrelay-green'
-              }`}
+              className="w-full bg-devrelay-surface2 border border-devrelay-border rounded px-4 py-2 text-devrelay-text font-mono focus:outline-none"
               placeholder="0 2 * * *"
             />
-            {cronError && <p className="text-sm text-devrelay-red mt-1">{cronError}</p>}
-            {cronPreview && (
-              <div className="mt-2 p-3 bg-devrelay-surface2 rounded text-sm">
-                <p className="text-devrelay-text">{cronPreview.description}</p>
-                <p className="text-devrelay-text-dim mt-2">Next runs:</p>
-                <ul className="text-devrelay-text-dim text-xs mt-1 space-y-1">
-                  {cronPreview.nextRuns?.slice(0, 5).map((run, i) => (
-                    <li key={i}>{new Date(run).toLocaleString()}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            <CronPreview expression={form.cronExpression} timezone={form.timezone} />
           </div>
 
           <div>
@@ -266,13 +308,9 @@ export default function SchedulerList() {
             <select
               value={form.timezone}
               onChange={(e) => setForm({ ...form, timezone: e.target.value })}
-              className="w-full bg-devrelay-surface2 border border-devrelay-border rounded px-4 py-2 text-devrelay-text focus:outline-none"
+              className="w-full bg-devrelay-surface2 border border-devrelay-border rounded px-4 py-2 text-devrelay-text"
             >
-              <option value="UTC">UTC</option>
-              <option value="America/New_York">America/New_York</option>
-              <option value="America/Los_Angeles">America/Los_Angeles</option>
-              <option value="Europe/London">Europe/London</option>
-              <option value="Asia/Tokyo">Asia/Tokyo</option>
+              {timezones.map(tz => <option key={tz} value={tz}>{tz}</option>)}
             </select>
           </div>
 
@@ -351,7 +389,7 @@ export default function SchedulerList() {
 
           <button
             onClick={handleCreate}
-            disabled={createMutation.isPending || !form.name || !form.cronExpression || cronError}
+            disabled={createMutation.isPending || !form.name || !form.cronExpression}
             className="w-full bg-devrelay-green text-devrelay-bg font-medium py-3 rounded hover:bg-devrelay-green-dim disabled:opacity-50"
           >
             {createMutation.isPending ? 'Creating...' : 'Create Scheduled Job'}

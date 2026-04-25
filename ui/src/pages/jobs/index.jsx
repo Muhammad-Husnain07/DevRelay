@@ -2,16 +2,18 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useDebounce } from '../../hooks/useDebounce';
-import { Play, Pause, RotateCcw, Trash2, Clock, AlertCircle } from 'lucide-react';
+import { Play, Pause, RotateCcw, Trash2, Clock, Search, Calendar, X } from 'lucide-react';
 import { useWorkspace } from '../../context/WorkspaceContext';
-import { listJobs, createJob, retryJob, cancelJob, getJob } from '../../api/resources/jobs';
+import { listJobs, createJob, retryJob, cancelJob, retryAllFailedJobs } from '../../api/resources/jobs';
 import { formatRelative, formatDuration, truncateJson } from '../../utils/formatters';
+import { usePagination } from '../../hooks/usePagination';
 import StatusBadge from '../../components/ui/StatusBadge';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import SlideOver from '../../components/ui/SlideOver';
 import ConfirmModal from '../../components/ui/ConfirmModal';
 import Pagination from '../../components/ui/Pagination';
+import toast from 'react-hot-toast';
 
 const statusTabs = [
   { key: 'all', label: 'All' },
@@ -19,7 +21,8 @@ const statusTabs = [
   { key: 'active', label: 'Active' },
   { key: 'completed', label: 'Completed' },
   { key: 'failed', label: 'Failed' },
-  { key: 'delayed', label: 'Delayed' }
+  { key: 'delayed', label: 'Delayed' },
+  { key: 'cancelled', label: 'Cancelled' }
 ];
 
 const priorityColors = {
@@ -29,15 +32,26 @@ const priorityColors = {
   low: 'bg-devrelay-border text-devrelay-text-dim'
 };
 
+const priorityLabels = {
+  critical: 'Critical',
+  high: 'High',
+  normal: 'Normal',
+  low: 'Low'
+};
+
 export default function JobList() {
   const { workspace } = useWorkspace();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
-  const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
-  const [retryConfirm, setRetryConfirm] = useState(null);
+  const [deleteConfirmJob, setDeleteConfirmJob] = useState(null);
+  const [retryConfirmJob, setRetryConfirmJob] = useState(null);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+
+  const { page, limit, setPage, nextPage, prevPage } = usePagination({ initialLimit: 20 });
 
   const [form, setForm] = useState({
     name: '',
@@ -50,31 +64,50 @@ export default function JobList() {
   const debouncedSearch = useDebounce(search, 300);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['jobs', workspace?.slug, status, debouncedSearch, page],
-    queryFn: () => listJobs(workspace.slug, { status: status === 'all' ? undefined : status, search: debouncedSearch, page, limit: 20 }),
+    queryKey: ['jobs', workspace?.slug, status, debouncedSearch, page, limit, dateFrom, dateTo],
+    queryFn: () => listJobs(workspace.slug, { 
+      status: status === 'all' ? undefined : status, 
+      search: debouncedSearch, 
+      page, 
+      limit,
+      from: dateFrom || undefined,
+      to: dateTo || undefined
+    }),
     enabled: !!workspace?.slug
   });
 
   const createMutation = useMutation({
     mutationFn: (data) => createJob(workspace.slug, data),
-    onSuccess: () => {
+    onSuccess: (res) => {
       queryClient.invalidateQueries(['jobs']);
       setCreateOpen(false);
       setForm({ name: '', payload: '{}', priority: 0, delay: 0 });
+      toast.success(`Job enqueued: ${res.data?.job?.id || 'success'}`);
     },
-    onError: (err) => alert(err.response?.data?.error || 'Failed to create')
+    onError: (err) => toast.error(err.response?.data?.error || 'Failed to create')
   });
 
   const retryMutation = useMutation({
     mutationFn: (id) => retryJob(workspace.slug, id),
-    onSuccess: () => queryClient.invalidateQueries(['jobs'])
+    onSuccess: () => {
+      queryClient.invalidateQueries(['jobs']);
+      setRetryConfirmJob(null);
+    }
+  });
+
+  const retryAllMutation = useMutation({
+    mutationFn: () => retryAllFailedJobs(workspace.slug),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['jobs']);
+      toast.success('All failed jobs queued for retry');
+    }
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id) => cancelJob(workspace.slug, id),
     onSuccess: () => {
       queryClient.invalidateQueries(['jobs']);
-      setDeleteConfirm(null);
+      setDeleteConfirmJob(null);
     }
   });
 
@@ -96,6 +129,13 @@ export default function JobList() {
       priority: form.priority,
       delay: form.delay * 60000
     });
+  };
+
+  const clearFilters = () => {
+    setSearch('');
+    setDateFrom('');
+    setDateTo('');
+    setStatus('all');
   };
 
   const jobs = data?.data?.jobs || [];
@@ -134,23 +174,76 @@ export default function JobList() {
           >
             {tab.label}
             <span className="text-xs px-1.5 py-0.5 bg-devrelay-bg rounded">
-              {tab.key === 'all' ? stats.total : tab.key === 'waiting' ? stats.waiting : tab.key === 'active' ? stats.active : tab.key === 'completed' ? stats.completed : tab.key === 'failed' ? stats.failed : stats.delayed}
+              {tab.key === 'all' ? stats.total : tab.key === 'waiting' ? stats.waiting : tab.key === 'active' ? stats.active : tab.key === 'completed' ? stats.completed : tab.key === 'failed' ? stats.failed : tab.key === 'delayed' ? stats.delayed : 0}
             </span>
           </button>
         ))}
       </div>
 
       <div className="flex gap-4 mb-6">
-        <div className="flex-1">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-devrelay-text-dim" />
           <input
             type="text"
-            placeholder="Search jobs..."
+            placeholder="Search by job name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-devrelay-surface2 border border-devrelay-border rounded px-4 py-2 text-devrelay-text focus:outline-none focus:border-devrelay-green"
+            className="w-full bg-devrelay-surface2 border border-devrelay-border rounded pl-10 pr-4 py-2 text-devrelay-text focus:outline-none focus:border-devrelay-green"
           />
         </div>
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className={`flex items-center gap-2 px-4 py-2 rounded border ${
+            showFilters ? 'border-devrelay-green text-devrelay-green' : 'border-devrelay-border text-devrelay-text-dim'
+          }`}
+        >
+          <Calendar className="w-4 h-4" />
+          Filters
+        </button>
       </div>
+
+      {showFilters && (
+        <div className="flex gap-4 mb-6 p-4 bg-devrelay-surface2 rounded-lg">
+          <div>
+            <label className="block text-xs text-devrelay-text-dim mb-1">From</label>
+            <input
+              type="datetime-local"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="bg-devrelay-surface border border-devrelay-border rounded px-3 py-1 text-sm text-devrelay-text"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-devrelay-text-dim mb-1">To</label>
+            <input
+              type="datetime-local"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="bg-devrelay-surface border border-devrelay-border rounded px-3 py-1 text-sm text-devrelay-text"
+            />
+          </div>
+          <button
+            onClick={clearFilters}
+            className="flex items-center gap-1 text-devrelay-text-dim hover:text-devrelay-red h-fit mt-5"
+          >
+            <X className="w-4 h-4" />
+            Clear
+          </button>
+        </div>
+      )}
+
+      {status === 'failed' && stats.failed > 0 && (
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={() => retryAllMutation.mutate()}
+            disabled={retryAllMutation.isPending}
+            className="flex items-center gap-2 bg-devrelay-amber text-devrelay-bg font-medium px-4 py-2 rounded hover:bg-devrelay-amber-dim disabled:opacity-50"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Retry All Failed ({stats.failed})
+          </button>
+        </div>
+      )}
 
       {jobs.length === 0 ? (
         <EmptyState title="No jobs" description="Enqueue your first job to process background tasks" />
@@ -181,7 +274,7 @@ export default function JobList() {
                   </td>
                   <td className="px-6 py-4">
                     <span className={`px-2 py-1 text-xs rounded ${priorityColors[job.priority < 0 ? 'low' : job.priority === 2 ? 'critical' : job.priority === 1 ? 'high' : 'normal']}`}>
-                      {job.priority < 0 ? 'Low' : job.priority === 2 ? 'Critical' : job.priority === 1 ? 'High' : 'Normal'}
+                      {priorityLabels[job.priority < 0 ? 'low' : job.priority === 2 ? 'critical' : job.priority === 1 ? 'high' : 'normal']}
                     </span>
                   </td>
                   <td className="px-6 py-4">
@@ -195,7 +288,7 @@ export default function JobList() {
                     <div className="flex items-center justify-end gap-2">
                       {job.status === 'failed' && (
                         <button 
-                          onClick={() => setRetryConfirm(job)}
+                          onClick={() => setRetryConfirmJob(job)}
                           className="p-2 hover:bg-devrelay-border rounded" 
                           title="Retry"
                         >
@@ -203,7 +296,7 @@ export default function JobList() {
                         </button>
                       )}
                       <button 
-                        onClick={() => setDeleteConfirm(job)} 
+                        onClick={() => setDeleteConfirmJob(job)} 
                         className="p-2 hover:bg-devrelay-border rounded" 
                         title="Cancel"
                       >
@@ -221,7 +314,7 @@ export default function JobList() {
       <div className="mt-6 flex justify-center">
         <Pagination
           page={page}
-          totalPages={Math.ceil((stats.total || 0) / 20)}
+          totalPages={Math.ceil((stats.total || 0) / limit)}
           onChange={setPage}
         />
       </div>
@@ -300,21 +393,21 @@ export default function JobList() {
       </SlideOver>
 
       <ConfirmModal
-        open={!!deleteConfirm}
-        onClose={() => setDeleteConfirm(null)}
-        onConfirm={() => deleteMutation.mutate(deleteConfirm._id || deleteConfirm.id)}
+        open={!!deleteConfirmJob}
+        onClose={() => setDeleteConfirmJob(null)}
+        onConfirm={() => deleteMutation.mutate(deleteConfirmJob._id || deleteConfirmJob.id)}
         title="Cancel Job"
-        description={`Are you sure you want to cancel "${deleteConfirm?.name}"?`}
+        description={`Are you sure you want to cancel "${deleteConfirmJob?.name}"?`}
         confirmLabel="Cancel Job"
         danger
       />
 
       <ConfirmModal
-        open={!!retryConfirm}
-        onClose={() => setRetryConfirm(null)}
-        onConfirm={() => retryMutation.mutate(retryConfirm._id || retryConfirm.id)}
+        open={!!retryConfirmJob}
+        onClose={() => setRetryConfirmJob(null)}
+        onConfirm={() => retryMutation.mutate(retryConfirmJob._id || retryConfirmJob.id)}
         title="Retry Job"
-        description={`Retry "${retryConfirm?.name}"? This will add it back to the queue.`}
+        description={`Retry "${retryConfirmJob?.name}"? This will add it back to the queue.`}
         confirmLabel="Retry"
       />
     </div>

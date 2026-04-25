@@ -17,3 +17,6 @@ export const cancelJob = (slug, id) =>
 
 export const getJobStats = (slug) => 
   get(`/workspaces/${slug}/jobs/stats`);
+
+export const retryAllFailedJobs = (slug) => 
+  post(`/workspaces/${slug}/jobs/retry-all`, {});
