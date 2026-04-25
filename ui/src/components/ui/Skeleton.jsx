@@ -72,3 +72,5 @@ export function SkeletonStats({ count = 4 }) {
     </div>
   );
 }
+
+export default { Skeleton, SkeletonRow, SkeletonTable, SkeletonCard, SkeletonStats };

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import * as authApi from '../api/resources/auth';
-import { getWorkspaces } from '../api/resources/workspaces';
+import { listWorkspaces } from '../api/resources/workspaces';
 
 const AuthContext = createContext(null);
 
@@ -17,7 +17,7 @@ export function AuthProvider({ children }) {
         .then(({ data }) => {
           setUser(data.user);
           setIsAuthenticated(true);
-          return getWorkspaces();
+          return listWorkspaces();
         })
         .then(({ data }) => {
           setWorkspaces(data.workspaces || data);
@@ -41,7 +41,7 @@ export function AuthProvider({ children }) {
     setToken(data.token);
     setUser(data.user);
     setIsAuthenticated(true);
-    const { data: ws } = await getWorkspaces();
+    const { data: ws } = await listWorkspaces();
     setWorkspaces(ws.workspaces || ws);
     return data;
   };
@@ -61,7 +61,7 @@ export function AuthProvider({ children }) {
     setToken(data.token);
     setUser(data.user);
     setIsAuthenticated(true);
-    const { data: ws } = await getWorkspaces();
+    const { data: ws } = await listWorkspaces();
     setWorkspaces(ws.workspaces || ws);
     return data;
   };

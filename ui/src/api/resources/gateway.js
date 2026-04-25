@@ -36,5 +36,8 @@ export const updateConsumer = (slug, id, data) =>
 export const deleteConsumer = (slug, id) => 
   del(`/workspaces/${slug}/gateway/consumers/${id}`);
 
+export const toggleConsumer = (slug, id) => 
+  post(`/workspaces/${slug}/gateway/consumers/${id}/toggle`, {});
+
 export const getConsumerUsage = (slug, id, params) => 
   get(`/workspaces/${slug}/gateway/consumers/${id}/usage`, { params });

@@ -30,6 +30,9 @@ export const updateMemberRole = (slug, userId, role) =>
 export const getWorkspaceStats = (slug) => 
   get(`/workspaces/${slug}/stats`);
 
+export const getSummary = () => 
+  get('/workspaces/summary');
+
 export const listApiKeys = (slug) => 
   get(`/workspaces/${slug}/api-keys`);
 

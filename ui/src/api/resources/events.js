@@ -17,3 +17,6 @@ export const getInbound = (slug, id) =>
 
 export const getInboundRequests = (slug, id, params) => 
   get(`/workspaces/${slug}/inbound/${id}/requests`, { params });
+
+export const getLiveStats = () => 
+  get('/live-stats');
