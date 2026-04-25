@@ -29,3 +29,12 @@ export const updateMemberRole = (slug, userId, role) =>
 
 export const getWorkspaceStats = (slug) => 
   get(`/workspaces/${slug}/stats`);
+
+export const listApiKeys = (slug) => 
+  get(`/workspaces/${slug}/api-keys`);
+
+export const createApiKey = (slug, data) => 
+  post(`/workspaces/${slug}/api-keys`, data);
+
+export const revokeApiKey = (slug, id) => 
+  del(`/workspaces/${slug}/api-keys/${id}`);
