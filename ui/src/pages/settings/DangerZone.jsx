@@ -9,6 +9,10 @@ import ConfirmModal from '../../components/ui/ConfirmModal';
 
 export default function DangerZoneSettings() {
   const { workspace, refreshWorkspaces } = useWorkspace();
+  
+  if (!workspace) {
+    return <div className="text-devrelay-text-dim">Loading...</div>;
+  }
   const navigate = useNavigate();
   const toast = useToast();
   

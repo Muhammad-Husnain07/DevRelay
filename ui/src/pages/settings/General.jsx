@@ -9,6 +9,10 @@ import Spinner from '../../components/ui/Spinner';
 
 export default function GeneralSettings() {
   const { workspace, refreshWorkspaces } = useWorkspace();
+  
+  if (!workspace) {
+    return <div className="text-devrelay-text-dim">Loading...</div>;
+  }
   const queryClient = useQueryClient();
   const toast = useToast();
   

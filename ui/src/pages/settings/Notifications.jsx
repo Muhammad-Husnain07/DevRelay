@@ -7,6 +7,10 @@ import { X, Plus, Bell, Mail, Globe } from 'lucide-react';
 
 export default function NotificationsSettings() {
   const { workspace } = useWorkspace();
+  
+  if (!workspace) {
+    return <div className="text-devrelay-text-dim">Loading...</div>;
+  }
   const queryClient = useQueryClient();
   const toast = useToast();
   

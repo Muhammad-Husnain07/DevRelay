@@ -23,6 +23,12 @@ export default function ApiKeysSettings() {
   const queryClient = useQueryClient();
   const toast = useToast();
   
+  if (!workspace) {
+    return <div className="text-devrelay-text-dim">Loading...</div>;
+  }
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  
   const [createOpen, setCreateOpen] = useState(false);
   const [revokeConfirm, setRevokeConfirm] = useState(null);
   const [generatedKey, setGeneratedKey] = useState(null);

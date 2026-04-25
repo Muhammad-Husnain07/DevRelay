@@ -21,6 +21,10 @@ const roleColors = {
 
 export default function MembersSettings() {
   const { workspace } = useWorkspace();
+  
+  if (!workspace) {
+    return <div className="text-devrelay-text-dim">Loading...</div>;
+  }
   const queryClient = useQueryClient();
   const toast = useToast();
   
