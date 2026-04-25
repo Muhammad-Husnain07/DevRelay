@@ -38,6 +38,14 @@ router.delete('/:workspaceSlug/gateway/consumers/:id', asyncHandler(async (req, 
   res.json({ message: 'Consumer deleted' });
 }));
 
+router.post('/:workspaceSlug/gateway/consumers/:id/toggle', asyncHandler(async (req, res) => {
+  const consumer = await Consumer.findById(req.params.id);
+  if (!consumer) return res.status(404).json({ error: 'Consumer not found' });
+  consumer.isActive = !consumer.isActive;
+  await consumer.save();
+  res.json({ consumer });
+}));
+
 router.get('/:workspaceSlug/gateway/consumers/:id/usage', asyncHandler(async (req, res) => {
   const consumer = await Consumer.findById(req.params.id);
   if (!consumer) return res.status(404).json({ error: 'Consumer not found' });

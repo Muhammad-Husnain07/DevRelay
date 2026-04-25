@@ -64,6 +64,15 @@ router.post('/:workspaceSlug/alerts/rules/:id/evaluate', asyncHandler(async (req
   res.json({ result });
 }));
 
+router.post('/:workspaceSlug/alerts/rules/:id/test', asyncHandler(async (req, res) => {
+  const { getMetricValue } = require('../services/alertService');
+  const workspace = res.locals.workspace;
+  const rule = await AlertRule.findById(req.params.id);
+  if (!rule) return res.status(404).json({ error: 'Rule not found' });
+  const currentValue = await getMetricValue(rule.conditionType, workspace._id);
+  res.json({ currentValue, threshold: rule.conditionConfig?.threshold });
+}));
+
 router.post('/:workspaceSlug/alerts/evaluate', asyncHandler(async (req, res) => {
   await evaluateAllRules();
   res.json({ message: 'Evaluation complete' });

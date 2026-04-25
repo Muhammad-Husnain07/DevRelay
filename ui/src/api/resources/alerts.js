@@ -18,6 +18,9 @@ export const deleteAlertRule = (slug, id) =>
 export const evaluateAlertRule = (slug, id) => 
   post(`/workspaces/${slug}/alerts/rules/${id}/evaluate`, {});
 
+export const testAlertRule = (slug, id) => 
+  post(`/workspaces/${slug}/alerts/rules/${id}/test`, {});
+
 export const getAlerts = (slug, params) => 
   get(`/workspaces/${slug}/alerts`, { params });
 
