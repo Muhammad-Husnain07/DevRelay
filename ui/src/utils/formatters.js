@@ -1,4 +1,4 @@
-import { format, formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow, formatDistance } from 'date-fns';
 
 export function formatDate(date) {
   if (!date) return '-';
@@ -19,10 +19,11 @@ export function formatRelative(date) {
 }
 
 export function formatDuration(ms) {
-  if (!ms) return '-';
+  if (!ms && ms !== 0) return '-';
   if (ms < 1000) return `${ms}ms`;
   if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-  return `${(ms / 60000).toFixed(1)}m`;
+  if (ms < 3600000) return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`;
+  return `${Math.floor(ms / 3600000)}h ${Math.floor((ms % 3600000) / 60000)}m`;
 }
 
 export function formatBytes(bytes) {
@@ -35,4 +36,35 @@ export function formatBytes(bytes) {
 export function truncate(str, length = 50) {
   if (!str || str.length <= length) return str;
   return str.slice(0, length) + '...';
+}
+
+export function truncateJson(obj, maxLen = 60) {
+  if (!obj) return '-';
+  const str = typeof obj === 'string' ? obj : JSON.stringify(obj);
+  if (str.length <= maxLen) return str;
+  return str.slice(0, maxLen) + '...';
+}
+
+export function formatJson(obj) {
+  if (!obj) return '';
+  return JSON.stringify(obj, null, 2);
+}
+
+export function formatCountdown(date) {
+  if (!date) return '-';
+  const d = new Date(date);
+  const now = new Date();
+  const diff = d - now;
+  
+  if (diff < 0) return 'Now';
+  
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  
+  if (days > 0) return `${days}d ${hours % 24}h`;
+  if (hours > 0) return `${hours}h ${minutes % 60}m`;
+  if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+  return `${seconds}s`;
 }
