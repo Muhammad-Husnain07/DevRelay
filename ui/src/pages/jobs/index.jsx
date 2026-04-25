@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useDebounce } from './useDebounce';
+import { useDebounce } from '../../hooks/useDebounce';
 import { Play, Pause, RotateCcw, Trash2, Clock, AlertCircle } from 'lucide-react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { listJobs, createJob, retryJob, cancelJob, getJob } from '../../api/resources/jobs';
@@ -170,7 +171,11 @@ export default function JobList() {
             <tbody>
               {jobs.map(job => (
                 <tr key={job._id || job.id} className="border-b border-devrelay-border hover:bg-devrelay-surface2">
-                  <td className="px-6 py-4 text-devrelay-text font-medium">{job.name}</td>
+                  <td className="px-6 py-4">
+                    <Link to={`/jobs/${job._id || job.id}`} className="text-devrelay-text font-medium hover:text-devrelay-green">
+                      {job.name}
+                    </Link>
+                  </td>
                   <td className="px-6 py-4 text-devrelay-text-dim font-mono text-sm">
                     {truncateJson(job.payload, 60)}
                   </td>

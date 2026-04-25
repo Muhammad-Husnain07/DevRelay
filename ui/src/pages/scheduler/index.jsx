@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useDebounce } from '../useDebounce';
+import { useDebounce } from '../../hooks/useDebounce';
 import { Play, Pause, Trash2, History, Plus, AlertCircle } from 'lucide-react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { listScheduledJobs, createScheduledJob, toggleScheduledJob, deleteScheduledJob, runScheduledJobNow } from '../../api/resources/scheduler';
@@ -188,7 +189,11 @@ export default function SchedulerList() {
             <tbody>
               {jobs.map(job => (
                 <tr key={job._id || job.id} className="border-b border-devrelay-border hover:bg-devrelay-surface2">
-                  <td className="px-6 py-4 text-devrelay-text font-medium">{job.name}</td>
+                  <td className="px-6 py-4">
+                    <Link to={`/scheduler/${job._id || job.id}`} className="text-devrelay-text font-medium hover:text-devrelay-green">
+                      {job.name}
+                    </Link>
+                  </td>
                   <td className="px-6 py-4 text-devrelay-green font-mono text-sm">{job.cronExpression}</td>
                   <td className="px-6 py-4 text-devrelay-text-dim text-sm">{job.timezone || 'UTC'}</td>
                   <td className="px-6 py-4 text-devrelay-text-dim text-sm">{job.lastRunAt ? formatRelative(job.lastRunAt) : '-'}</td>

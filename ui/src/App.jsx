@@ -12,7 +12,12 @@ import WebhookList from './pages/webhooks';
 import InboundList from './pages/inbound';
 import InboundDetail from './pages/inbound/detail';
 import JobList from './pages/jobs';
+import JobDetail from './pages/jobs/detail';
 import SchedulerList from './pages/scheduler';
+import SchedulerDetail from './pages/scheduler/detail';
+import Gateway from './pages/gateway';
+import Alerts from './pages/alerts';
+import Settings from './pages/settings';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -41,48 +46,12 @@ export default function App() {
                   <Route path="/inbound" element={<InboundList />} />
                   <Route path="/inbound/:slug" element={<InboundDetail />} />
                   <Route path="/jobs" element={<JobList />} />
+                  <Route path="/jobs/:id" element={<JobDetail />} />
                   <Route path="/scheduler" element={<SchedulerList />} />
-                  <Route path="/gateway" element={<div className="p-8 text-devrelay-text">Gateway</div>} />
-                  <Route path="/alerts" element={<div className="p-8 text-devrelay-text">Alerts</div>} />
-                  <Route path="/settings" element={<div className="p-8 text-devrelay-text">Settings</div>} />
-                </Route>
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
-              </Routes>
-            </SocketProvider>
-          </WorkspaceProvider>
-        </AuthProvider>
-      </BrowserRouter>
-      <ToastContainer
-        position="bottom-right"
-        toastClassName="bg-devrelay-surface border border-devrelay-border text-devrelay-text"
-      />
-    </QueryClientProvider>
-  );
-}
-  }
-});
-
-export default function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthProvider>
-          <WorkspaceProvider>
-            <SocketProvider>
-              <Routes>
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                <Route element={<AppShell />}>
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/webhooks" element={<WebhookList />} />
-                  <Route path="/inbound" element={<InboundList />} />
-                  <Route path="/inbound/:slug" element={<InboundDetail />} />
-                  <Route path="/jobs" element={<div className="p-8 text-devrelay-text">Jobs</div>} />
-                  <Route path="/scheduler" element={<div className="p-8 text-devrelay-text">Scheduler</div>} />
-                  <Route path="/gateway" element={<div className="p-8 text-devrelay-text">Gateway</div>} />
-                  <Route path="/alerts" element={<div className="p-8 text-devrelay-text">Alerts</div>} />
-                  <Route path="/settings" element={<div className="p-8 text-devrelay-text">Settings</div>} />
+                  <Route path="/scheduler/:id" element={<SchedulerDetail />} />
+                  <Route path="/gateway" element={<Gateway />} />
+                  <Route path="/alerts" element={<Alerts />} />
+                  <Route path="/settings" element={<Settings />} />
                 </Route>
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
