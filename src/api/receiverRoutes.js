@@ -18,7 +18,7 @@ const router = express.Router();
 
 const MAX_REQUEST_HISTORY = 20;
 
-router.post('/receive/:slug', express.raw({ type: '*/*' }), async (req, res) => {
+router.post('/:slug', express.raw({ type: '*/*' }), async (req, res) => {
   try {
     const inbound = await InboundWebhook.findOne({ slug: req.params.slug });
     
