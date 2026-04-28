@@ -7,6 +7,9 @@ const { socketServer } = require('./socket/socketServer');
 const cronManager = require('./scheduler/cronManager');
 const { start: startQuotaWorker } = require('./workers/quotaResetWorker');
 const { start: startMetricsAggregator } = require('./workers/metricsAggregator');
+const { start: startWebhookDeliveryWorker } = require('./workers/webhookDeliveryWorker');
+const { start: startGenericJobWorker } = require('./workers/genericJobWorker');
+const { start: startEmailWorker } = require('./workers/emailWorker');
 const winston = require('winston');
 
 const logger = winston.createLogger({
@@ -52,6 +55,9 @@ async function start() {
 
     startQuotaWorker();
     startMetricsAggregator();
+    startWebhookDeliveryWorker();
+    startGenericJobWorker();
+    startEmailWorker();
 
     const gracefulShutdown = async (signal) => {
       console.log(`\n[Server] Received ${signal}. Shutting down gracefully...`);

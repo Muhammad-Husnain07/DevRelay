@@ -13,6 +13,36 @@ const connection = {
   maxRetriesPerRequest: null
 };
 
+let webhookDeliveryWorker = null;
+
+function start() {
+  if (webhookDeliveryWorker) return webhookDeliveryWorker;
+  
+  webhookDeliveryWorker = new Worker('webhook-delivery', deliverWebhook, {
+    connection,
+    concurrency: 10,
+    limiter: {
+      max: 10,
+      duration: 1000
+    }
+  });
+
+  webhookDeliveryWorker.on('completed', (job) => {
+    console.log(`[Worker] Job ${job.id} completed`);
+  });
+
+  webhookDeliveryWorker.on('failed', (job, error) => {
+    console.error(`[Worker] Job ${job.id} failed:`, error.message);
+  });
+
+  webhookDeliveryWorker.on('error', (error) => {
+    console.error('[Worker] Worker error:', error.message);
+  });
+
+  console.log('[WebhookDeliveryWorker] Started');
+  return webhookDeliveryWorker;
+}
+
 async function deliverWebhook(job) {
   const { deliveryId, endpointId, eventId, attempt = 1 } = job.data;
   
@@ -134,28 +164,7 @@ async function markDeliveryFailed(delivery, errorMessage) {
   await delivery.save();
 }
 
-const webhookDeliveryWorker = new Worker('webhook-delivery', deliverWebhook, {
-  connection,
-  concurrency: 10,
-  limiter: {
-    max: 10,
-    duration: 1000
-  }
-});
-
-webhookDeliveryWorker.on('completed', (job) => {
-  console.log(`[Worker] Job ${job.id} completed`);
-});
-
-webhookDeliveryWorker.on('failed', (job, error) => {
-  console.error(`[Worker] Job ${job.id} failed:`, error.message);
-});
-
-webhookDeliveryWorker.on('error', (error) => {
-  console.error('[Worker] Worker error:', error.message);
-});
-
 module.exports = {
-  webhookDeliveryWorker,
+  start,
   deliverWebhook
 };

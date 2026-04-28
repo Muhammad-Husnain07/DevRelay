@@ -10,6 +10,36 @@ const connection = {
   maxRetriesPerRequest: null
 };
 
+let genericJobWorker = null;
+
+function start() {
+  if (genericJobWorker) return genericJobWorker;
+  
+  genericJobWorker = new Worker('generic-job', processJob, {
+    connection,
+    concurrency: 10,
+    limiter: {
+      max: 20,
+      duration: 1000
+    }
+  });
+
+  genericJobWorker.on('completed', (job) => {
+    console.log(`[Worker] Generic job ${job.id} completed`);
+  });
+
+  genericJobWorker.on('failed', (job, error) => {
+    console.error(`[Worker] Generic job ${job.id} failed:`, error.message);
+  });
+
+  genericJobWorker.on('error', (error) => {
+    console.error('[Worker] Generic job worker error:', error.message);
+  });
+
+  console.log('[GenericJobWorker] Started');
+  return genericJobWorker;
+}
+
 const handlers = {
   'http-request': async (payload) => {
     const { url, method = 'GET', headers = {}, body } = payload;
@@ -124,33 +154,12 @@ async function processJob(job) {
   }
 }
 
-const genericJobWorker = new Worker('generic-job', processJob, {
-  connection,
-  concurrency: 10,
-  limiter: {
-    max: 20,
-    duration: 1000
-  }
-});
-
-genericJobWorker.on('completed', (job) => {
-  console.log(`[Worker] Generic job ${job.id} completed`);
-});
-
-genericJobWorker.on('failed', (job, error) => {
-  console.error(`[Worker] Generic job ${job.id} failed:`, error.message);
-});
-
-genericJobWorker.on('error', (error) => {
-  console.error('[Worker] Generic job worker error:', error.message);
-});
-
 function registerHandler(name, fn) {
   handlers[name] = fn;
 }
 
 module.exports = {
-  genericJobWorker,
+  start,
   registerHandler,
   handlers
 };

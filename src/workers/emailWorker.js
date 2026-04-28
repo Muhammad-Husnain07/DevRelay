@@ -9,6 +9,36 @@ const connection = {
   maxRetriesPerRequest: null
 };
 
+let emailWorker = null;
+
+function start() {
+  if (emailWorker) return emailWorker;
+  
+  emailWorker = new Worker('email', processEmailJob, {
+    connection,
+    concurrency: 5,
+    limiter: {
+      max: 10,
+      duration: 1000
+    }
+  });
+
+  emailWorker.on('completed', (job) => {
+    console.log(`[EmailWorker] Job ${job.id} completed`);
+  });
+
+  emailWorker.on('failed', (job, error) => {
+    console.error(`[EmailWorker] Job ${job.id} failed:`, error.message);
+  });
+
+  emailWorker.on('error', (error) => {
+    console.error('[EmailWorker] Worker error:', error.message);
+  });
+
+  console.log('[EmailWorker] Started');
+  return emailWorker;
+}
+
 async function processEmailJob(job) {
   const { templateSlug, workspaceId, to, variables, attachments } = job.data;
   
@@ -42,25 +72,4 @@ async function processEmailJob(job) {
   return result;
 }
 
-const emailWorker = new Worker('email', processEmailJob, {
-  connection,
-  concurrency: 5,
-  limiter: {
-    max: 10,
-    duration: 1000
-  }
-});
-
-emailWorker.on('completed', (job) => {
-  console.log(`[EmailWorker] Job ${job.id} completed`);
-});
-
-emailWorker.on('failed', (job, error) => {
-  console.error(`[EmailWorker] Job ${job.id} failed:`, error.message);
-});
-
-emailWorker.on('error', (error) => {
-  console.error('[EmailWorker] Worker error:', error.message);
-});
-
-module.exports = { emailWorker, processEmailJob };
+module.exports = { start, processEmailJob };
