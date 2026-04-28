@@ -1,7 +1,9 @@
 const { dispatchEvent } = require('../../services/webhookService');
 
 async function execute(config, payload = {}, workspaceId) {
-  const { eventType, eventPayload } = config;
+  console.log('[WebhookEventAction] config:', JSON.stringify(config));
+  
+  const { eventType, payload: eventPayload } = config;
   
   const result = await dispatchEvent(workspaceId, eventType, eventPayload || payload, 'schedule');
   
