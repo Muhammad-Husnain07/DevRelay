@@ -1,115 +1,119 @@
 const express = require('express');
 const router = express.Router();
 const WebhookEvent = require('../models/WebhookEvent');
+const WebhookDelivery = require('../models/WebhookDelivery');
+const Workspace = require('../models/Workspace');
+const { authenticate } = require('../middleware/auth');
+const { dispatchEvent, retryDelivery } = require('../services/webhookService');
 
-/**
- * @swagger
- * /api/workspaces/{workspaceSlug}/events:
- *   post:
- *     summary: Create a webhook event
- *     description: Emit a new webhook event for a workspace
- *     tags: [Events]
- *     parameters:
- *       - in: path
- *         name: workspaceSlug
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               event:
- *                 type: string
- *               payload:
- *                 type: object
- *     responses:
- *       201:
- *         description: Event created
- */
+console.log('[EventRoutes] Loading...');
+console.log('[EventRoutes] dispatchEvent:', typeof dispatchEvent);
+
+// Auth middleware
+router.use(authenticate);
+
+// POST /:workspaceSlug/events - Dispatch event
 router.post('/:workspaceSlug/events', async (req, res) => {
+  console.log('[EventRoutes] POST /:workspaceSlug/events called');
+  
   try {
+    const { workspaceSlug } = req.params;
     const { type, payload = {} } = req.body;
+    
+    console.log('[EventRoutes] workspaceSlug:', workspaceSlug);
+    console.log('[EventRoutes] type:', type);
+    console.log('[EventRoutes] user:', req.user?.email);
     
     if (!type) {
       return res.status(400).json({ error: 'Event type is required' });
     }
     
-    const result = await dispatchEvent(req.workspace._id, type, payload, 'api');
+    // Find workspace
+    const workspace = await Workspace.findOne({ slug: workspaceSlug });
+    if (!workspace) {
+      return res.status(404).json({ error: 'Workspace not found: ' + workspaceSlug });
+    }
+    
+    // Check membership
+    const isMember = workspace.members.some(m => m.userId.toString() === req.user._id.toString());
+    if (!isMember) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    console.log('[EventRoutes] Calling dispatchEvent...');
+    
+    // Dispatch event
+    const result = await dispatchEvent(workspace._id, type, payload, 'api');
+    
+    console.log('[EventRoutes] Result:', result);
     
     res.status(201).json({
       eventId: result.eventId,
       deliveriesQueued: result.deliveryCount
     });
   } catch (error) {
-    console.error('Trigger event error:', error);
-    res.status(500).json({ error: 'Failed to trigger event' });
+    console.error('[EventRoutes] Error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
-/**
- * @swagger
- * /api/workspaces/{workspaceSlug}/events:
- *   get:
- *     summary: List webhook events
- *     description: Get all events for a workspace
- *     tags: [Events]
- *     parameters:
- *       - in: path
- *         name: workspaceSlug
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: List of events
- */
+// GET /:workspaceSlug/events - List events
 router.get('/:workspaceSlug/events', async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 50;
-    const page = parseInt(req.query.page) || 1;
-    const skip = (page - 1) * limit;
+    const { workspaceSlug } = req.params;
+    const { limit = 50, page = 1 } = req.query;
     
-    const events = await WebhookEvent.find({ workspaceId: req.workspace._id })
+    const workspace = await Workspace.findOne({ slug: workspaceSlug });
+    if (!workspace) {
+      return res.status(404).json({ error: 'Workspace not found' });
+    }
+    
+    if (!workspace.members || !Array.isArray(workspace.members)) {
+      return res.status(500).json({ error: 'Workspace has no members array' });
+    }
+    
+    const isMember = workspace.members.some(m => m.userId.toString() === req.user._id.toString());
+    if (!isMember) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    if (!workspace._id) {
+      return res.status(500).json({ error: 'Workspace has no _id' });
+    }
+    
+    const events = await WebhookEvent.find({ workspaceId: workspace._id })
       .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit));
     
-    const total = await WebhookEvent.countDocuments({ workspaceId: req.workspace._id });
+    const total = await WebhookEvent.countDocuments({ workspaceId: workspace._id });
     
     res.json({
       events,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      }
+      pagination: { page: parseInt(page), limit: parseInt(limit), total }
     });
   } catch (error) {
-    console.error('List events error:', error);
-    res.status(500).json({ error: 'Failed to list events' });
+    console.error('[EventRoutes] GET Error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
-/**
- * GET /api/workspaces/{workspaceSlug}/events/{eventId}
- * @summary Get event details with delivery attempts
- * @tags Webhooks
- * @param {string} workspaceSlug.path.required - Workspace slug
- * @param {string} eventId.path.required - Event ID
- * @return {EventDetailResponse} 200 - Event details
- */
+// GET /:workspaceSlug/events/:eventId - Get event
 router.get('/:workspaceSlug/events/:eventId', async (req, res) => {
   try {
-    const event = await WebhookEvent.findOne({
-      _id: req.params.eventId,
-      workspaceId: req.workspace._id
-    });
+    const { workspaceSlug, eventId } = req.params;
     
+    const workspace = await Workspace.findOne({ slug: workspaceSlug });
+    if (!workspace) {
+      return res.status(404).json({ error: 'Workspace not found' });
+    }
+    
+    const isMember = workspace.members.some(m => m.userId.toString() === req.user._id.toString());
+    if (!isMember) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const event = await WebhookEvent.findOne({ _id: eventId, workspaceId: workspace._id });
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
     }
@@ -119,38 +123,26 @@ router.get('/:workspaceSlug/events/:eventId', async (req, res) => {
     
     res.json({ event, deliveries });
   } catch (error) {
-    console.error('Get event error:', error);
-    res.status(500).json({ error: 'Failed to get event' });
+    res.status(500).json({ error: error.message });
   }
 });
 
-/**
- * POST /api/workspaces/{workspaceSlug}/deliveries/{deliveryId}/retry
- * @summary Manually retry a failed delivery
- * @tags Webhooks
- * @param {string} workspaceSlug.path.required - Workspace slug
- * @param {string} deliveryId.path.required - Delivery ID
- * @return {DeliveryResponse} 200 - Delivery queued
- */
+// POST /:workspaceSlug/deliveries/:deliveryId/retry - Retry delivery
 router.post('/:workspaceSlug/deliveries/:deliveryId/retry', async (req, res) => {
   try {
-    const delivery = await WebhookDelivery.findById(req.params.deliveryId);
+    const { deliveryId } = req.params;
     
+    const delivery = await WebhookDelivery.findById(deliveryId);
     if (!delivery) {
       return res.status(404).json({ error: 'Delivery not found' });
     }
     
-    if (delivery.workspaceId.toString() !== req.workspace._id.toString()) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-    
-    const retried = await retryDelivery(delivery._id);
-    
-    res.json({ delivery: retried });
+    const result = await retryDelivery(deliveryId);
+    res.json({ delivery: result });
   } catch (error) {
-    console.error('Retry delivery error:', error);
-    res.status(500).json({ error: 'Failed to retry delivery' });
+    res.status(500).json({ error: error.message });
   }
 });
 
+console.log('[EventRoutes] Routes defined');
 module.exports = router;

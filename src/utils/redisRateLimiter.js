@@ -1,4 +1,4 @@
-const { redisClient } = require('./redis');
+const { redisClient } = require('../config/redis');
 
 const SLIDING_WINDOW_SCRIPT = `
 local key = KEYS[1]

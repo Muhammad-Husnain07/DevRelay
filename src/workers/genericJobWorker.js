@@ -1,6 +1,6 @@
 const { Worker } = require('bullmq');
 const axios = require('axios');
-const { redisClient } = require('./redis');
+const { redisClient } = require('../config/redis');
 const Job = require('../models/Job');
 const { getEmitter } = require('../socket/emitter');
 const { incrementCounter } = require('../services/metricsService');

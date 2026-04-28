@@ -242,8 +242,78 @@ router.post('/:workspaceSlug/webhooks/:id/test', authenticate, resolveWorkspace,
     if (!endpoint) {
       return res.status(404).json({ error: 'Endpoint not found' });
     }
+
+    const crypto = require('crypto');
+    const axios = require('axios');
+
+    const secretKey = Buffer.from(endpoint.secret, 'hex');
     
-    res.json({ message: 'Test delivery not yet implemented' });
+    const testPayload = {
+      event: 'test.delivery',
+      timestamp: new Date().toISOString(),
+      data: {
+        message: 'This is a test webhook delivery from DevRelay',
+        workspace: req.workspace.name,
+        endpoint: endpoint.name
+      }
+    };
+
+    const signature = crypto
+      .createHmac('sha256', secretKey)
+      .update(JSON.stringify(testPayload))
+      .digest('hex');
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-DevRelay-Signature': `sha256=${signature}`,
+      'X-DevRelay-Event': 'test.delivery',
+      'X-DevRelay-Test': 'true'
+    };
+
+    if (endpoint.headers && endpoint.headers.size > 0) {
+      for (const [key, value] of endpoint.headers) {
+        headers[key] = value;
+      }
+    }
+
+    const startTime = Date.now();
+    let responseStatus = null;
+    let responseBody = null;
+    let errorMessage = null;
+
+    try {
+      const response = await axios.post(endpoint.url, testPayload, {
+        headers,
+        timeout: endpoint.timeoutMs || 30000,
+        validateStatus: () => true
+      });
+      responseStatus = response.status;
+      responseBody = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+    } catch (axiosError) {
+      errorMessage = axiosError.message;
+    }
+
+    const responseTimeMs = Date.now() - startTime;
+    const isSuccess = responseStatus >= 200 && responseStatus < 300;
+
+    await endpoint.updateStats(isSuccess, responseTimeMs);
+
+    if (errorMessage) {
+      return res.status(200).json({
+        success: false,
+        responseTimeMs,
+        error: errorMessage,
+        message: 'Test delivery failed'
+      });
+    }
+
+    res.json({
+      success: isSuccess,
+      responseTimeMs,
+      responseStatus,
+      responseBody: responseBody ? (responseBody.substring(0, 500) || 'No response body') : 'No response body',
+      message: isSuccess ? 'Test delivery successful' : 'Test delivery failed'
+    });
   } catch (error) {
     console.error('Test endpoint error:', error);
     res.status(500).json({ error: 'Failed to test endpoint' });

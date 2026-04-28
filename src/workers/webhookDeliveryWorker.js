@@ -1,7 +1,7 @@
 const { Worker } = require('bullmq');
 const axios = require('axios');
 const crypto = require('crypto');
-const { redisClient } = require('./redis');
+const { redisClient } = require('../config/redis');
 const WebhookEndpoint = require('../models/WebhookEndpoint');
 const WebhookDelivery = require('../models/WebhookDelivery');
 const WebhookEvent = require('../models/WebhookEvent');
@@ -44,8 +44,9 @@ async function deliverWebhook(job) {
     
     event = await WebhookEvent.findById(eventId);
     const payload = delivery.requestBody;
+    const secretKey = Buffer.from(endpoint.secret, 'hex');
     const signature = crypto
-      .createHmac('sha256', endpoint.secret)
+      .createHmac('sha256', secretKey)
       .update(JSON.stringify(payload))
       .digest('hex');
     

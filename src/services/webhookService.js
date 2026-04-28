@@ -4,6 +4,9 @@ const WebhookEvent = require('../models/WebhookEvent');
 const { webhookDeliveryQueue } = require('../config/queues');
 
 async function dispatchEvent(workspaceId, eventType, payload, source = 'api') {
+  console.log('[WebhookService] dispatchEvent called', { workspaceId, eventType, source });
+  
+  // Create event
   const event = await WebhookEvent.create({
     workspaceId,
     type: eventType,
@@ -12,6 +15,7 @@ async function dispatchEvent(workspaceId, eventType, payload, source = 'api') {
     status: 'pending'
   });
   
+  // Find matching endpoints
   const endpoints = await WebhookEndpoint.find({
     workspaceId,
     isActive: true,
@@ -21,6 +25,8 @@ async function dispatchEvent(workspaceId, eventType, payload, source = 'api') {
     ]
   });
   
+  console.log('[WebhookService] Found endpoints:', endpoints.length);
+  
   if (endpoints.length === 0) {
     event.status = 'delivered';
     event.deliveryCount = 0;
@@ -28,8 +34,8 @@ async function dispatchEvent(workspaceId, eventType, payload, source = 'api') {
     return { eventId: event._id, deliveryCount: 0 };
   }
   
+  // Create deliveries and enqueue them
   const deliveries = [];
-  
   for (const endpoint of endpoints) {
     const delivery = await WebhookDelivery.create({
       endpointId: endpoint._id,
@@ -42,12 +48,14 @@ async function dispatchEvent(workspaceId, eventType, payload, source = 'api') {
       }
     });
     
+    // Enqueue for delivery
     await webhookDeliveryQueue.add('deliver', {
       deliveryId: delivery._id.toString(),
       endpointId: endpoint._id.toString(),
-      eventId: event._id.toString()
+      eventId: event._id.toString(),
+      userId: null
     }, {
-      jobId: delivery._id.toString()
+      jobId: `delivery-${delivery._id}`
     });
     
     deliveries.push(delivery);
@@ -65,7 +73,6 @@ async function dispatchEvent(workspaceId, eventType, payload, source = 'api') {
 
 async function retryDelivery(deliveryId) {
   const delivery = await WebhookDelivery.findById(deliveryId);
-  
   if (!delivery) {
     throw new Error('Delivery not found');
   }
@@ -75,27 +82,22 @@ async function retryDelivery(deliveryId) {
     throw new Error('Endpoint not found');
   }
   
-  const event = await WebhookEvent.findById(delivery.eventId);
-  
   delivery.status = 'pending';
   delivery.attempt = 1;
   delivery.error = undefined;
-  delivery.responseStatus = undefined;
-  delivery.responseBody = undefined;
   await delivery.save();
   
+  // Re-enqueue for delivery
   await webhookDeliveryQueue.add('deliver', {
     deliveryId: delivery._id.toString(),
     endpointId: endpoint._id.toString(),
-    eventId: event?._id?.toString()
+    eventId: delivery.eventId.toString(),
+    userId: null
   }, {
-    jobId: delivery._id.toString()
+    jobId: `retry-${delivery._id}`
   });
   
   return delivery;
 }
 
-module.exports = {
-  dispatchEvent,
-  retryDelivery
-};
+module.exports = { dispatchEvent, retryDelivery };
