@@ -12,11 +12,14 @@ export const getEvent = (slug, eventId) =>
 export const listInbound = (slug, params) => 
   get(`/workspaces/${slug}/inbound`, { params });
 
+export const createInbound = (slug, data) => 
+  post(`/workspaces/${slug}/inbound`, data);
+
 export const getInbound = (slug, id) => 
   get(`/workspaces/${slug}/inbound/${id}`);
 
 export const getInboundRequests = (slug, id, params) => 
   get(`/workspaces/${slug}/inbound/${id}/requests`, { params });
 
-export const getLiveStats = () => 
-  get('/live-stats');
+export const getLiveStats = (slug) => 
+  get(`/workspaces/${slug}/metrics/live`);

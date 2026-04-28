@@ -22,7 +22,7 @@ const statusTabs = [
   { key: 'completed', label: 'Completed' },
   { key: 'failed', label: 'Failed' },
   { key: 'delayed', label: 'Delayed' },
-  { key: 'cancelled', label: 'Cancelled' }
+  { key: 'paused', label: 'Cancelled' }
 ];
 
 const priorityColors = {
@@ -57,32 +57,52 @@ export default function JobList() {
     name: '',
     payload: '{}',
     priority: 0,
-    delay: 0
+    delay: 0,
+    handler: 'log-message'
   });
   const [payloadError, setPayloadError] = useState(null);
 
+  const handlerOptions = [
+    { value: 'log-message', label: 'Log Message', desc: 'Log a message', template: JSON.stringify({ message: "Hello World", level: "info" }, null, 2) },
+    { value: 'send-email', label: 'Send Email', desc: 'Send an email', template: JSON.stringify({ to: "user@example.com", subject: "Subject", body: "Email body" }, null, 2) },
+    { value: 'http-request', label: 'HTTP Request', desc: 'Make HTTP request', template: JSON.stringify({ url: "https://api.example.com", method: "POST", body: { key: "value" } }, null, 2) },
+    { value: 'webhook-call', label: 'Webhook Call', desc: 'Call a webhook', template: JSON.stringify({ url: "https://your-webhook.com/hook", event: "order.created", data: { orderId: 123 } }, null, 2) }
+  ];
+
+  const getTemplate = (handler) => handlerOptions.find(h => h.value === handler)?.template || '{}';
+
+  const handleHandlerChange = (handler) => {
+    setForm({ ...form, handler, payload: getTemplate(handler) });
+  };
+
   const debouncedSearch = useDebounce(search, 300);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['jobs', workspace?.slug, status, debouncedSearch, page, limit, dateFrom, dateTo],
     queryFn: () => listJobs(workspace.slug, { 
       status: status === 'all' ? undefined : status, 
-      search: debouncedSearch, 
+      name: debouncedSearch, 
       page, 
       limit,
       from: dateFrom || undefined,
       to: dateTo || undefined
     }),
-    enabled: !!workspace?.slug
+    enabled: !!workspace?.slug,
+    staleTime: 0
   });
+
+  if (error) {
+    console.error('Jobs query error:', error);
+    return <div className="p-8 text-devrelay-red">Error loading jobs: {error.message}</div>;
+  }
 
   const createMutation = useMutation({
     mutationFn: (data) => createJob(workspace.slug, data),
     onSuccess: (res) => {
       queryClient.invalidateQueries(['jobs']);
       setCreateOpen(false);
-      setForm({ name: '', payload: '{}', priority: 0, delay: 0 });
-      toast.success(`Job enqueued: ${res.data?.job?.id || 'success'}`);
+      setForm({ name: '', payload: '{}', priority: 0, delay: 0, handler: 'log-message' });
+      toast.success(`Job enqueued: ${res.job?.id || 'success'}`);
     },
     onError: (err) => toast.error(err.response?.data?.error || 'Failed to create')
   });
@@ -108,6 +128,10 @@ export default function JobList() {
     onSuccess: () => {
       queryClient.invalidateQueries(['jobs']);
       setDeleteConfirmJob(null);
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.error || 'Failed to cancel job');
+      setDeleteConfirmJob(null);
     }
   });
 
@@ -125,6 +149,7 @@ export default function JobList() {
     if (!form.name || payloadError) return;
     createMutation.mutate({
       name: form.name,
+      handler: form.handler,
       payload: JSON.parse(form.payload),
       priority: form.priority,
       delay: form.delay * 60000
@@ -138,8 +163,21 @@ export default function JobList() {
     setStatus('all');
   };
 
-  const jobs = data?.data?.jobs || [];
-  const stats = data?.data?.stats || {};
+  const rawData = data?.data || data;
+  const jobs = rawData?.jobs || [];
+  const statsRaw = rawData?.stats || {};
+  const stats = {
+    total: statsRaw.totalJobs || 0,
+    waiting: statsRaw.byStatus?.waiting || 0,
+    active: statsRaw.byStatus?.active || 0,
+    completed: statsRaw.byStatus?.completed || 0,
+    failed: statsRaw.byStatus?.failed || 0,
+    delayed: statsRaw.byStatus?.delayed || 0
+  };
+  
+  console.log('Jobs data:', data);
+  console.log('Jobs list:', jobs);
+  console.log('Jobs count:', jobs.length);
 
   if (isLoading) {
     return <div className="flex items-center justify-center p-8"><Spinner size="lg" /></div>;
@@ -253,6 +291,7 @@ export default function JobList() {
             <thead>
               <tr className="border-b border-devrelay-border">
                 <th className="text-left text-sm text-devrelay-text-dim px-6 py-3">Job Name</th>
+                <th className="text-left text-sm text-devrelay-text-dim px-6 py-3">Handler</th>
                 <th className="text-left text-sm text-devrelay-text-dim px-6 py-3">Payload</th>
                 <th className="text-left text-sm text-devrelay-text-dim px-6 py-3">Priority</th>
                 <th className="text-left text-sm text-devrelay-text-dim px-6 py-3">Status</th>
@@ -269,8 +308,13 @@ export default function JobList() {
                       {job.name}
                     </Link>
                   </td>
+                  <td className="px-6 py-4">
+                    <span className="px-2 py-1 text-xs rounded bg-devrelay-surface2 text-devrelay-text-dim">
+                      {job.handler || 'log-message'}
+                    </span>
+                  </td>
                   <td className="px-6 py-4 text-devrelay-text-dim font-mono text-sm">
-                    {truncateJson(job.payload, 60)}
+                    {truncateJson(job.payload, 50)}
                   </td>
                   <td className="px-6 py-4">
                     <span className={`px-2 py-1 text-xs rounded ${priorityColors[job.priority < 0 ? 'low' : job.priority === 2 ? 'critical' : job.priority === 1 ? 'high' : 'normal']}`}>
@@ -328,8 +372,21 @@ export default function JobList() {
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               className="w-full bg-devrelay-surface2 border border-devrelay-border rounded px-4 py-2 text-devrelay-text focus:outline-none focus:border-devrelay-green"
-              placeholder="send-email"
+              placeholder="my-job"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm text-devrelay-text-dim mb-2">Handler</label>
+            <select
+              value={form.handler}
+              onChange={(e) => handleHandlerChange(e.target.value)}
+              className="w-full bg-devrelay-surface2 border border-devrelay-border rounded px-4 py-2 text-devrelay-text focus:outline-none focus:border-devrelay-green"
+            >
+              {handlerOptions.map(h => (
+                <option key={h.value} value={h.value}>{h.label} - {h.desc}</option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -368,7 +425,16 @@ export default function JobList() {
           </div>
 
           <div>
-            <label className="block text-sm text-devrelay-text-dim mb-2">Payload (JSON)</label>
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-sm text-devrelay-text-dim">Payload (JSON)</label>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, payload: getTemplate(form.handler) })}
+                className="text-xs text-devrelay-green hover:underline"
+              >
+                Reset to Template
+              </button>
+            </div>
             <textarea
               value={form.payload}
               onChange={(e) => handlePayloadChange(e.target.value)}

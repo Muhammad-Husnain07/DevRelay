@@ -10,7 +10,7 @@ import StatusBadge from '../../components/ui/StatusBadge';
 import Spinner from '../../components/ui/Spinner';
 import SlideOver from '../../components/ui/SlideOver';
 import ConfirmModal from '../../components/ui/ConfirmModal';
-import SkeletonTable from '../../components/ui/Skeleton';
+import { SkeletonTable } from '../../components/ui/Skeleton';
 
 const roleColors = {
   owner: 'bg-devrelay-purple/20 text-devrelay-purple',
@@ -72,7 +72,7 @@ export default function MembersSettings() {
     }
   });
 
-  const members = data?.data?.members || [];
+  const members = data?.members || [];
   const currentUserId = workspace?.currentUser?.id;
 
   if (isLoading) {
@@ -97,22 +97,24 @@ export default function MembersSettings() {
             </tr>
           </thead>
           <tbody>
-            {members.map(member => (
-              <tr key={member._id || member.id} className="border-b border-devrelay-border hover:bg-devrelay-surface2">
+            {members.map(member => {
+              const user = member.userId || {};
+              return (
+              <tr key={member._id?.toString() || member.id} className="border-b border-devrelay-border hover:bg-devrelay-surface2">
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-devrelay-green/20 rounded-full flex items-center justify-center text-devrelay-green text-sm font-medium">
-                      {member.name?.[0] || member.email?.[0] || '?'}
+                      {user.name?.[0] || user.email?.[0] || '?'}
                     </div>
-                    <span className="text-devrelay-text font-medium">{member.name || '-'}</span>
+                    <span className="text-devrelay-text font-medium">{user.name || '-'}</span>
                   </div>
                 </td>
-                <td className="px-6 py-4 text-devrelay-text-dim">{member.email}</td>
+                <td className="px-6 py-4 text-devrelay-text-dim">{user.email}</td>
                 <td className="px-6 py-4">
                   <select
                     value={member.role}
-                    onChange={(e) => updateRoleMutation.mutate({ userId: member._id, role: e.target.value })}
-                    disabled={member.role === 'owner' || member._id === currentUserId}
+                    onChange={(e) => updateRoleMutation.mutate({ userId: member._id?.toString(), role: e.target.value })}
+                    disabled={member.role === 'owner' || member._id?.toString() === currentUserId}
                     className={`bg-transparent border rounded px-2 py-1 text-sm ${roleColors[member.role]} disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     <option value="viewer">Viewer</option>
@@ -125,7 +127,7 @@ export default function MembersSettings() {
                   {member.joinedAt ? formatRelative(member.joinedAt) : '-'}
                 </td>
                 <td className="px-6 py-4 text-right">
-                  {member.role !== 'owner' && member._id !== currentUserId && (
+                  {member.role !== 'owner' && member._id?.toString() !== currentUserId && (
                     <button
                       onClick={() => setRemoveConfirm(member)}
                       className="text-sm text-devrelay-red hover:underline"
@@ -135,7 +137,7 @@ export default function MembersSettings() {
                   )}
                 </td>
               </tr>
-            ))}
+              );})}
           </tbody>
         </table>
       </div>
@@ -172,9 +174,9 @@ export default function MembersSettings() {
       <ConfirmModal
         open={!!removeConfirm}
         onClose={() => setRemoveConfirm(null)}
-        onConfirm={() => removeMutation.mutate(removeConfirm._id)}
+        onConfirm={() => removeMutation.mutate(removeConfirm._id?.toString())}
         title="Remove Member"
-        description={`Are you sure you want to remove "${removeConfirm?.name || removeConfirm?.email}"? This cannot be undone.`}
+        description={`Are you sure you want to remove "${removeConfirm?.userId?.name || removeConfirm?.userId?.email}"? This cannot be undone.`}
         confirmLabel="Remove"
         danger
       />

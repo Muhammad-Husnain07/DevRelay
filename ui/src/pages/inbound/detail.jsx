@@ -13,6 +13,8 @@ function RequestRow({ request, workspaceSlug }) {
   const [expanded, setExpanded] = useState(false);
   const headers = request.headers || {};
   const body = request.body;
+  const timestamp = request.timestamp || request.createdAt;
+  const status = request.status || 'success';
 
   return (
     <div className="border border-devrelay-border rounded mb-2">
@@ -22,12 +24,12 @@ function RequestRow({ request, workspaceSlug }) {
       >
         <div className="flex items-center gap-3">
           {expanded ? <ChevronDown className="w-4 h-4 text-devrelay-text-dim" /> : <ChevronRight className="w-4 h-4 text-devrelay-text-dim" />}
-          <span className="text-sm text-devrelay-text">{formatDateTime(request.createdAt)}</span>
+          <span className="text-sm text-devrelay-text">{timestamp ? formatDateTime(timestamp) : '-'}</span>
           <span className="px-2 py-0.5 bg-devrelay-blue/20 text-devrelay-blue text-xs rounded">{request.method || 'POST'}</span>
           <span className="text-sm text-devrelay-text-dim">{request.size ? `${(request.size / 1024).toFixed(1)} KB` : '-'}</span>
         </div>
         <div className="flex items-center gap-3">
-          <StatusBadge status="success" label="Received" />
+          <StatusBadge status={status === 'success' ? 'success' : 'error'} label={status === 'success' ? 'Received' : 'Error'} />
         </div>
       </button>
 
@@ -74,13 +76,19 @@ export default function InboundDetail() {
 
   const { data: inbound, isLoading: loadingInbound } = useQuery({
     queryKey: ['inbound-detail', workspace?.slug, slug],
-    queryFn: () => getInbound(workspace.slug, slug),
+    queryFn: async () => {
+      const res = await getInbound(workspace.slug, slug);
+      return res.data;
+    },
     enabled: !!workspace?.slug && !!slug
   });
 
   const { data: requests, isLoading: loadingRequests, refetch } = useQuery({
     queryKey: ['inbound-requests', workspace?.slug, slug],
-    queryFn: () => getInboundRequests(workspace.slug, slug, { limit: 20 }),
+    queryFn: async () => {
+      const res = await getInboundRequests(workspace.slug, slug, { limit: 20 });
+      return res.data;
+    },
     enabled: !!workspace?.slug && !!slug,
     refetchInterval: 10000
   });
@@ -95,10 +103,10 @@ export default function InboundDetail() {
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-devrelay-text">{inbound?.data?.name || 'Inbound'}</h1>
+          <h1 className="text-2xl font-bold text-devrelay-text">{inbound?.inboundWebhooks?.[0]?.name || 'Inbound'}</h1>
           <p className="text-devrelay-text-dim mt-1">Inspector and request history</p>
         </div>
-        <StatusBadge status={inbound?.data?.isActive ? 'success' : 'inactive'} label={inbound?.data?.isActive ? 'Active' : 'Inactive'} />
+        <StatusBadge status={inbound?.inboundWebhooks?.[0]?.isActive ? 'success' : 'inactive'} label={inbound?.inboundWebhooks?.[0]?.isActive ? 'Active' : 'Inactive'} />
       </div>
 
       <div className="bg-devrelay-surface border border-devrelay-border rounded-lg p-6 mb-6">
@@ -113,11 +121,11 @@ export default function InboundDetail() {
         <div className="grid grid-cols-2 gap-6">
           <div>
             <h3 className="text-sm font-medium text-devrelay-text-dim mb-2">Signature Header</h3>
-            <p className="text-devrelay-text font-mono">{inbound?.data?.signatureHeader || 'X-DevRelay-Signature'}</p>
+            <p className="text-devrelay-text font-mono">{inbound?.inboundWebhooks?.[0]?.signatureHeader || 'X-DevRelay-Signature'}</p>
           </div>
           <div>
             <h3 className="text-sm font-medium text-devrelay-text-dim mb-2">Signature Algorithm</h3>
-            <p className="text-devrelay-text">{inbound?.data?.signatureAlgorithm || 'HMAC-SHA256'}</p>
+            <p className="text-devrelay-text">{inbound?.inboundWebhooks?.[0]?.signatureAlgorithm || 'HMAC-SHA256'}</p>
           </div>
         </div>
       </div>
@@ -132,11 +140,11 @@ export default function InboundDetail() {
           <Spinner />
         ) : (
           <div>
-            {requests?.data?.requests?.length === 0 ? (
+            {requests?.requests?.length === 0 ? (
               <p className="text-devrelay-text-dim text-center py-8">No requests yet</p>
             ) : (
-              requests?.data?.requests?.map((req) => (
-                <RequestRow key={req._id || req.id} request={req} workspaceSlug={workspace?.slug} />
+              requests?.requests?.map((req, idx) => (
+                <RequestRow key={idx} request={req} workspaceSlug={workspace?.slug} />
               ))
             )}
           </div>

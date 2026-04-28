@@ -7,7 +7,7 @@ import { formatRelative } from '../../utils/formatters';
 import CopyButton from '../../components/ui/CopyButton';
 import SlideOver from '../../components/ui/SlideOver';
 import ConfirmModal from '../../components/ui/ConfirmModal';
-import SkeletonTable from '../../components/ui/Skeleton';
+import { SkeletonTable } from '../../components/ui/Skeleton';
 
 const scopeOptions = [
   { value: 'webhook:read', label: 'Read Webhooks' },
@@ -48,7 +48,7 @@ export default function ApiKeysSettings() {
   const createMutation = useMutation({
     mutationFn: (data) => createApiKey(workspace.slug, data),
     onSuccess: (res) => {
-      setGeneratedKey(res.data?.key);
+      setGeneratedKey(res.key);
       queryClient.invalidateQueries(['apiKeys']);
     },
     onError: (err) => toast.error(err.response?.data?.error || 'Failed to create key')
@@ -64,7 +64,7 @@ export default function ApiKeysSettings() {
     onError: (err) => toast.error(err.response?.data?.error || 'Failed to revoke key')
   });
 
-  const keys = data?.data?.keys || [];
+  const keys = data?.keys || [];
 
   if (isLoading) {
     return <SkeletonTable rows={3} columns={5} />;

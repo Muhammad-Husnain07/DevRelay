@@ -4,6 +4,7 @@ import { Plus, Search, Trash2, Edit, Copy, RefreshCw } from 'lucide-react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { listWebhooks, createWebhook, deleteWebhook, testWebhook, rotateSecret } from '../../api/resources/webhooks';
 import { formatRelative, truncate } from '../../utils/formatters';
+import { useToast } from '../../hooks/useToast';
 import StatusBadge from '../../components/ui/StatusBadge';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
@@ -13,6 +14,7 @@ import ConfirmModal from '../../components/ui/ConfirmModal';
 
 export default function WebhookList() {
   const { workspace } = useWorkspace();
+  const toast = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -33,8 +35,13 @@ export default function WebhookList() {
 
   const { data: endpoints, isLoading } = useQuery({
     queryKey: ['webhooks', workspace?.slug],
-    queryFn: () => workspace?.slug ? listWebhooks(workspace.slug) : Promise.resolve({ data: [] }),
-    enabled: !!workspace?.slug
+    queryFn: async () => {
+      if (!workspace?.slug) return { endpoints: [] };
+      const res = await listWebhooks(workspace.slug);
+      return res.data;
+    },
+    enabled: !!workspace?.slug,
+    staleTime: 0
   });
 
   const createMutation = useMutation({
@@ -56,9 +63,20 @@ export default function WebhookList() {
   });
 
   const testMutation = useMutation({
-    mutationFn: (id) => testWebhook(workspace.slug, id, { test: true }),
-    onSuccess: (res) => setTestResult(res.data),
-    onError: (err) => setTestResult({ error: err.response?.data?.error || 'Test failed' })
+    mutationFn: async (id) => {
+      const res = await testWebhook(workspace.slug, id, { test: true });
+      return res.data;
+    },
+    onSuccess: (res) => {
+      if (res.success) {
+        toast.success('Webhook test successful!');
+      } else {
+        toast.error('Webhook test failed: ' + (res.error || 'Unknown error'));
+      }
+    },
+    onError: (err) => {
+      toast.error('Test error: ' + (err.response?.data?.error || err.message));
+    }
   });
 
   const rotateMutation = useMutation({
@@ -66,7 +84,7 @@ export default function WebhookList() {
     onSuccess: (res) => setNewSecret(res.data.secret)
   });
 
-  const filtered = endpoints?.data?.endpoints?.filter(e => {
+  const filtered = endpoints?.endpoints?.filter(e => {
     const matchesSearch = !search || e.name.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === 'all' || 
       (statusFilter === 'active' && e.isActive) ||
@@ -91,6 +109,7 @@ export default function WebhookList() {
   };
 
   const handleTest = (id) => {
+    console.log('Testing webhook:', id);
     testMutation.mutate(id);
   };
 
@@ -193,8 +212,12 @@ export default function WebhookList() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => handleTest(endpoint._id || endpoint.id)} className="p-2 hover:bg-devrelay-border rounded" title="Test">
-                        <RefreshCw className="w-4 h-4 text-devrelay-text-dim" />
+                      <button 
+                        onClick={() => handleTest(endpoint._id || endpoint.id)} 
+                        className="px-3 py-1 bg-devrelay-green/20 text-devrelay-green text-sm rounded hover:bg-devrelay-green/30" 
+                        title="Test"
+                      >
+                        Test
                       </button>
                       <button onClick={() => setDeleteConfirm(endpoint)} className="p-2 hover:bg-devrelay-border rounded" title="Delete">
                         <Trash2 className="w-4 h-4 text-devrelay-red" />
