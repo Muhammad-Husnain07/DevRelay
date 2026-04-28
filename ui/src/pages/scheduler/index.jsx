@@ -41,16 +41,24 @@ function CronPreview({ expression, timezone }) {
 
     validateCron(debounced)
       .then(data => {
-        if (data.valid) {
-          setPreview(data);
+        if (!data || typeof data !== 'object') {
+          setError('Unexpected response');
+          setPreview(null);
+          return;
+        }
+        if (data.valid === true && data.valid !== false) {
+          setPreview({
+            description: String(data.description || ''),
+            nextRuns: Array.isArray(data.nextRuns) ? data.nextRuns : []
+          });
           setError(null);
         } else {
-          setError(data.error || 'Invalid cron expression');
+          setError(String(data.error || data.message || 'Invalid cron expression'));
           setPreview(null);
         }
       })
-      .catch(() => {
-        setError('Failed to validate');
+      .catch(err => {
+        setError(String(err?.message || 'Validation failed'));
         setPreview(null);
       });
   }, [debounced]);
@@ -89,6 +97,19 @@ const timezones = [
   'Asia/Singapore', 'Australia/Sydney'
 ];
 
+const cronPresets = [
+  { label: 'Every minute', value: '* * * * *' },
+  { label: 'Every 30 sec', value: '*/30 * * * * *' },
+  { label: 'Every 5 min', value: '*/5 * * * *' },
+  { label: 'Every 15 min', value: '*/15 * * * *' },
+  { label: 'Every hour', value: '0 * * * *' },
+  { label: 'Every 6 hours', value: '0 */6 * * *' },
+  { label: 'Every day midnight', value: '0 0 * * *' },
+  { label: 'Every day 2am', value: '0 2 * * *' },
+  { label: 'Every Monday', value: '0 0 * * 1' },
+  { label: 'Every month 1st', value: '0 0 1 * *' },
+];
+
 const methodColors = {
   GET: 'bg-devrelay-green/20 text-devrelay-green',
   POST: 'bg-devrelay-blue/20 text-devrelay-blue',
@@ -103,6 +124,20 @@ export default function SchedulerList() {
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
+  const jobTemplates = [
+    { id: 'log-message', name: 'Log Message', description: 'Log a message to console', handler: 'log-message', config: { message: '' } },
+    { id: 'send-email', name: 'Send Email', description: 'Send an email notification', handler: 'send-email', config: { to: '', subject: '', body: '' } },
+    { id: 'http-request', name: 'HTTP Request', description: 'Call external API', handler: 'http-request', config: { url: '', method: 'GET', headers: {}, body: '' } },
+    { id: 'webhook-call', name: 'Webhook Call', description: 'Call a webhook', handler: 'webhook-call', config: { url: '', payload: {} } },
+  ];
+
+  const eventTemplates = [
+    { id: 'daily.summary', name: 'Daily Summary', eventType: 'daily.summary', payload: {} },
+    { id: 'hourly.health', name: 'Hourly Health Check', eventType: 'hourly.health', payload: {} },
+    { id: 'weekly.report', name: 'Weekly Report', eventType: 'weekly.report', payload: {} },
+    { id: 'custom', name: 'Custom Event', eventType: '', payload: {} },
+  ];
+
   const [form, setForm] = useState({
     name: '',
     cronExpression: '',
@@ -112,9 +147,9 @@ export default function SchedulerList() {
     httpMethod: 'GET',
     httpHeaders: [],
     httpBody: '',
-    jobName: '',
-    jobPayload: '{}',
-    eventType: '',
+    jobHandler: 'log-message',
+    jobConfig: { message: '' },
+    eventType: 'daily.summary',
     eventPayload: '{}'
   });
 
@@ -123,8 +158,12 @@ export default function SchedulerList() {
   const { data, isLoading } = useQuery({
     queryKey: ['scheduler', workspace?.slug, debouncedSearch],
     queryFn: () => listScheduledJobs(workspace.slug, { search: debouncedSearch }),
-    enabled: !!workspace?.slug
+    enabled: !!workspace?.slug,
+    staleTime: 0
   });
+
+  const rawData = data?.data || data;
+  const jobs = rawData?.scheduledJobs || data?.scheduledJobs || [];
 
   const createMutation = useMutation({
     mutationFn: (data) => createScheduledJob(workspace.slug, data),
@@ -166,20 +205,21 @@ export default function SchedulerList() {
 
   const handleCreate = () => {
     if (!form.name || !form.cronExpression) return;
-    const data = {
+    let action;
+    if (form.actionType === 'http') {
+      action = { type: 'http-request', url: form.httpUrl, method: form.httpMethod, headers: [], body: form.httpBody };
+    } else if (form.actionType === 'job') {
+      action = { type: 'enqueue-job', handler: form.jobHandler, config: form.jobConfig };
+    } else {
+      action = { type: 'webhook-event', eventType: form.eventType, payload: typeof form.eventPayload === 'string' ? JSON.parse(form.eventPayload) : form.eventPayload };
+    }
+    createMutation.mutate({
       name: form.name,
       cronExpression: form.cronExpression,
       timezone: form.timezone,
-      action: form.actionType === 'http' 
-        ? { type: 'http-request', url: form.httpUrl, method: form.httpMethod, headers: form.httpHeaders, body: form.httpBody }
-        : form.actionType === 'job'
-        ? { type: 'enqueue-job', name: form.jobName, payload: JSON.parse(form.jobPayload) }
-        : { type: 'webhook-event', eventType: form.eventType, payload: JSON.parse(form.eventPayload) }
-    };
-    createMutation.mutate(data);
+      action
+    });
   };
-
-  const jobs = data?.data?.scheduledJobs || [];
 
   if (isLoading) {
     return <div className="flex items-center justify-center p-8"><Spinner size="lg" /></div>;
@@ -293,6 +333,21 @@ export default function SchedulerList() {
 
           <div>
             <label className="block text-sm text-devrelay-text-dim mb-2">Cron Expression *</label>
+            <div className="flex gap-2 mb-2 flex-wrap">
+              {cronPresets.slice(0, 4).map(preset => (
+                <button
+                  key={preset.value}
+                  onClick={() => setForm({ ...form, cronExpression: preset.value })}
+                  className={`text-xs px-2 py-1 rounded ${
+                    form.cronExpression === preset.value
+                      ? 'bg-devrelay-green text-devrelay-bg'
+                      : 'bg-devrelay-surface2 border border-devrelay-border text-devrelay-text-dim'
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
             <input
               type="text"
               value={form.cronExpression}
@@ -362,28 +417,137 @@ export default function SchedulerList() {
           )}
 
           {form.actionType === 'job' && (
-            <div>
-              <label className="block text-sm text-devrelay-text-dim mb-2">Job Name *</label>
-              <input
-                type="text"
-                value={form.jobName}
-                onChange={(e) => setForm({ ...form, jobName: e.target.value })}
-                className="w-full bg-devrelay-surface2 border border-devrelay-border rounded px-4 py-2 text-devrelay-text focus:outline-none"
-                placeholder="send-email"
-              />
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-devrelay-text-dim mb-2">Job Template</label>
+                <select
+                  value={form.jobHandler}
+                  onChange={(e) => {
+                    const tpl = jobTemplates.find(t => t.id === e.target.value);
+                    setForm({ ...form, jobHandler: e.target.value, jobConfig: { ...tpl.config } });
+                  }}
+                  className="w-full bg-devrelay-surface2 border border-devrelay-border rounded px-4 py-2 text-devrelay-text"
+                >
+                  {jobTemplates.map(t => (
+                    <option key={t.id} value={t.id}>{t.name} - {t.description}</option>
+                  ))}
+                </select>
+              </div>
+              {form.jobHandler === 'log-message' && (
+                <div>
+                  <label className="block text-sm text-devrelay-text-dim mb-2">Log Message</label>
+                  <input
+                    type="text"
+                    value={form.jobConfig.message}
+                    onChange={(e) => setForm({ ...form, jobConfig: { ...form.jobConfig, message: e.target.value } })}
+                    className="w-full bg-devrelay-surface2 border border-devrelay-border rounded px-4 py-2 text-devrelay-text"
+                    placeholder="Task completed successfully"
+                  />
+                </div>
+              )}
+              {form.jobHandler === 'send-email' && (
+                <>
+                  <div>
+                    <label className="block text-sm text-devrelay-text-dim mb-2">To Email</label>
+                    <input
+                      type="email"
+                      value={form.jobConfig.to}
+                      onChange={(e) => setForm({ ...form, jobConfig: { ...form.jobConfig, to: e.target.value } })}
+                      className="w-full bg-devrelay-surface2 border border-devrelay-border rounded px-4 py-2 text-devrelay-text"
+                      placeholder="user@example.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-devrelay-text-dim mb-2">Subject</label>
+                    <input
+                      type="text"
+                      value={form.jobConfig.subject}
+                      onChange={(e) => setForm({ ...form, jobConfig: { ...form.jobConfig, subject: e.target.value } })}
+                      className="w-full bg-devrelay-surface2 border border-devrelay-border rounded px-4 py-2 text-devrelay-text"
+                      placeholder="Scheduled Report"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-devrelay-text-dim mb-2">Body</label>
+                    <textarea
+                      value={form.jobConfig.body}
+                      onChange={(e) => setForm({ ...form, jobConfig: { ...form.jobConfig, body: e.target.value } })}
+                      className="w-full bg-devrelay-surface2 border border-devrelay-border rounded px-4 py-2 text-devrelay-text h-24"
+                      placeholder="Email body..."
+                    />
+                  </div>
+                </>
+              )}
+              {form.jobHandler === 'http-request' && (
+                <>
+                  <div>
+                    <label className="block text-sm text-devrelay-text-dim mb-2">URL</label>
+                    <input
+                      type="url"
+                      value={form.jobConfig.url}
+                      onChange={(e) => setForm({ ...form, jobConfig: { ...form.jobConfig, url: e.target.value } })}
+                      className="w-full bg-devrelay-surface2 border border-devrelay-border rounded px-4 py-2 text-devrelay-text"
+                      placeholder="https://api.example.com/webhook"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-devrelay-text-dim mb-2">Method</label>
+                    <select
+                      value={form.jobConfig.method}
+                      onChange={(e) => setForm({ ...form, jobConfig: { ...form.jobConfig, method: e.target.value } })}
+                      className="w-full bg-devrelay-surface2 border border-devrelay-border rounded px-4 py-2 text-devrelay-text"
+                    >
+                      <option value="GET">GET</option>
+                      <option value="POST">POST</option>
+                      <option value="PUT">PUT</option>
+                    </select>
+                  </div>
+                </>
+              )}
+              {form.jobHandler === 'webhook-call' && (
+                <>
+                  <div>
+                    <label className="block text-sm text-devrelay-text-dim mb-2">Webhook URL</label>
+                    <input
+                      type="url"
+                      value={form.jobConfig.url}
+                      onChange={(e) => setForm({ ...form, jobConfig: { ...form.jobConfig, url: e.target.value } })}
+                      className="w-full bg-devrelay-surface2 border border-devrelay-border rounded px-4 py-2 text-devrelay-text"
+                      placeholder="https://hooks.slack.com/..."
+                    />
+                  </div>
+                </>
+              )}
             </div>
           )}
 
           {form.actionType === 'event' && (
-            <div>
-              <label className="block text-sm text-devrelay-text-dim mb-2">Event Type *</label>
-              <input
-                type="text"
-                value={form.eventType}
-                onChange={(e) => setForm({ ...form, eventType: e.target.value })}
-                className="w-full bg-devrelay-surface2 border border-devrelay-border rounded px-4 py-2 text-devrelay-text focus:outline-none"
-                placeholder="daily.summary"
-              />
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-devrelay-text-dim mb-2">Event Template</label>
+                <select
+                  value={form.eventType}
+                  onChange={(e) => {
+                    const tpl = eventTemplates.find(t => t.id === e.target.value) || eventTemplates[3];
+                    setForm({ ...form, eventType: tpl.eventType, eventPayload: tpl.payload });
+                  }}
+                  className="w-full bg-devrelay-surface2 border border-devrelay-border rounded px-4 py-2 text-devrelay-text"
+                >
+                  {eventTemplates.map(t => (
+                    <option key={t.id} value={t.id === 'custom' ? 'custom' : t.eventType}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-devrelay-text-dim mb-2">Event Type</label>
+                <input
+                  type="text"
+                  value={form.eventType}
+                  onChange={(e) => setForm({ ...form, eventType: e.target.value })}
+                  className="w-full bg-devrelay-surface2 border border-devrelay-border rounded px-4 py-2 text-devrelay-text"
+                  placeholder="daily.summary"
+                />
+              </div>
             </div>
           )}
 
