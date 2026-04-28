@@ -1,10 +1,12 @@
 const { Queue } = require('bullmq');
-const { redisClient } = require('./redis');
+const IORedis = require('ioredis');
 
-const connection = {
-  connection: redisClient,
-  maxRetriesPerRequest: null
-};
+const connection = new IORedis({
+  host: 'redis',
+  port: 6379,
+  maxRetriesPerRequest: null,
+  retryStrategy: (times) => Math.min(times * 100, 3000)
+});
 
 const webhookDeliveryQueue = new Queue('webhook-delivery', {
   connection,

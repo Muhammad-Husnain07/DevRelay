@@ -1,18 +1,20 @@
 const { Worker } = require('bullmq');
+const IORedis = require('ioredis');
 const axios = require('axios');
 const crypto = require('crypto');
-const { redisClient } = require('../config/redis');
 const WebhookEndpoint = require('../models/WebhookEndpoint');
 const WebhookDelivery = require('../models/WebhookDelivery');
 const WebhookEvent = require('../models/WebhookEvent');
 const { getEmitter } = require('../socket/emitter');
 const { incrementCounter } = require('../services/metricsService');
 
-const connection = {
-  connection: redisClient,
+const connection = new IORedis({
+  host: 'redis',
+  port: 6379,
   maxRetriesPerRequest: null,
-  enableOfflineQueue: false
-};
+  enableOfflineQueue: false,
+  retryStrategy: (times) => Math.min(times * 100, 3000)
+});
 
 let webhookDeliveryWorker = null;
 let restartTimeout = null;
@@ -93,6 +95,15 @@ async function deliverWebhook(job) {
     
     event = await WebhookEvent.findById(eventId);
     const payload = delivery.requestBody;
+    
+    if (!endpoint.secret) {
+      console.error(`[WebhookDelivery] ${deliveryId}: No secret for endpoint ${endpointId}`);
+      delivery.status = 'failed';
+      delivery.error = 'Endpoint secret missing';
+      await delivery.save();
+      return;
+    }
+    
     const secretKey = Buffer.from(endpoint.secret, 'hex');
     const signature = crypto
       .createHmac('sha256', secretKey)

@@ -1,15 +1,17 @@
 const { Worker } = require('bullmq');
+const IORedis = require('ioredis');
 const axios = require('axios');
-const { redisClient } = require('../config/redis');
 const Job = require('../models/Job');
 const { getEmitter } = require('../socket/emitter');
 const { incrementCounter } = require('../services/metricsService');
 
-const connection = {
-  connection: redisClient,
+const connection = new IORedis({
+  host: 'redis',
+  port: 6379,
   maxRetriesPerRequest: null,
-  enableOfflineQueue: false
-};
+  enableOfflineQueue: false,
+  retryStrategy: (times) => Math.min(times * 100, 3000)
+});
 
 let genericJobWorker = null;
 let restartTimeout = null;

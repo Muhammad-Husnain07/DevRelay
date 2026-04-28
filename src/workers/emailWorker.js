@@ -1,14 +1,16 @@
 const { Worker } = require('bullmq');
-const { redisClient } = require('../config/redis');
+const IORedis = require('ioredis');
 const emailService = require('../services/emailService');
 const EmailTemplate = require('../models/EmailTemplate');
 const { renderTemplate } = require('../utils/templateEngine');
 
-const connection = {
-  connection: redisClient,
+const connection = new IORedis({
+  host: 'redis',
+  port: 6379,
   maxRetriesPerRequest: null,
-  enableOfflineQueue: false
-};
+  enableOfflineQueue: false,
+  retryStrategy: (times) => Math.min(times * 100, 3000)
+});
 
 let emailWorker = null;
 let restartTimeout = null;
