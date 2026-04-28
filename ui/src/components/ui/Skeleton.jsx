@@ -73,4 +73,4 @@ export function SkeletonStats({ count = 4 }) {
   );
 }
 
-export default { Skeleton, SkeletonRow, SkeletonTable, SkeletonCard, SkeletonStats };
+// Components exported at definition lines above

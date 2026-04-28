@@ -4,6 +4,10 @@ exports.resolveWorkspace = async (req, res, next) => {
   try {
     const { workspaceSlug } = req.params;
 
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
     const workspace = await Workspace.findBySlug(workspaceSlug);
     if (!workspace) {
       return res.status(404).json({ error: 'Workspace not found' });

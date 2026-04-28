@@ -8,7 +8,8 @@ import {
   Network, 
   Bell, 
   Settings,
-  LogOut
+  LogOut,
+  Zap
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
@@ -16,6 +17,7 @@ import WorkspaceSwitcher from './WorkspaceSwitcher';
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/webhooks', icon: Webhook, label: 'Webhooks' },
+  { to: '/events', icon: Zap, label: 'Events' },
   { to: '/inbound', icon: ArrowDownCircle, label: 'Inbound' },
   { to: '/jobs', icon: Briefcase, label: 'Jobs' },
   { to: '/scheduler', icon: Clock, label: 'Scheduler' },

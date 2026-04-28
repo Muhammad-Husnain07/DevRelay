@@ -9,6 +9,8 @@ import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import Dashboard from './pages/Dashboard';
 import WebhookList from './pages/webhooks';
+import WebhookDetail from './pages/webhooks/detail';
+import EventsList from './pages/events';
 import InboundList from './pages/inbound';
 import InboundDetail from './pages/inbound/detail';
 import JobList from './pages/jobs';
@@ -64,6 +66,8 @@ export default function App() {
                 <Route element={<AppShell />}>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/webhooks" element={<WebhookList />} />
+                  <Route path="/webhooks/:id" element={<WebhookDetail />} />
+                  <Route path="/events" element={<EventsList />} />
                   <Route path="/inbound" element={<InboundList />} />
                   <Route path="/inbound/:slug" element={<InboundDetail />} />
                   <Route path="/jobs" element={<JobList />} />
