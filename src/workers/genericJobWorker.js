@@ -7,22 +7,30 @@ const { incrementCounter } = require('../services/metricsService');
 
 const connection = {
   connection: redisClient,
-  maxRetriesPerRequest: null
+  maxRetriesPerRequest: null,
+  enableOfflineQueue: false
 };
 
 let genericJobWorker = null;
+let restartTimeout = null;
 
 function start() {
   if (genericJobWorker) return genericJobWorker;
   
-  genericJobWorker = new Worker('generic-job', processJob, {
-    connection,
-    concurrency: 10,
-    limiter: {
-      max: 20,
-      duration: 1000
-    }
-  });
+  try {
+    genericJobWorker = new Worker('generic-job', processJob, {
+      connection,
+      concurrency: 10,
+      limiter: {
+        max: 20,
+        duration: 1000
+      }
+    });
+  } catch (err) {
+    console.error('[GenericJobWorker] Failed to start:', err.message);
+    scheduleRestart();
+    return null;
+  }
 
   genericJobWorker.on('completed', (job) => {
     console.log(`[Worker] Generic job ${job.id} completed`);
@@ -34,10 +42,21 @@ function start() {
 
   genericJobWorker.on('error', (error) => {
     console.error('[Worker] Generic job worker error:', error.message);
+    scheduleRestart();
   });
 
   console.log('[GenericJobWorker] Started');
   return genericJobWorker;
+}
+
+function scheduleRestart() {
+  if (restartTimeout) return;
+  restartTimeout = setTimeout(() => {
+    restartTimeout = null;
+    genericJobWorker = null;
+    console.log('[GenericJobWorker] Attempting restart...');
+    start();
+  }, 5000);
 }
 
 const handlers = {

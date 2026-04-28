@@ -10,22 +10,30 @@ const { incrementCounter } = require('../services/metricsService');
 
 const connection = {
   connection: redisClient,
-  maxRetriesPerRequest: null
+  maxRetriesPerRequest: null,
+  enableOfflineQueue: false
 };
 
 let webhookDeliveryWorker = null;
+let restartTimeout = null;
 
 function start() {
   if (webhookDeliveryWorker) return webhookDeliveryWorker;
   
-  webhookDeliveryWorker = new Worker('webhook-delivery', deliverWebhook, {
-    connection,
-    concurrency: 10,
-    limiter: {
-      max: 10,
-      duration: 1000
-    }
-  });
+  try {
+    webhookDeliveryWorker = new Worker('webhook-delivery', deliverWebhook, {
+      connection,
+      concurrency: 10,
+      limiter: {
+        max: 10,
+        duration: 1000
+      }
+    });
+  } catch (err) {
+    console.error('[WebhookDeliveryWorker] Failed to start:', err.message);
+    scheduleRestart();
+    return null;
+  }
 
   webhookDeliveryWorker.on('completed', (job) => {
     console.log(`[Worker] Job ${job.id} completed`);
@@ -37,10 +45,21 @@ function start() {
 
   webhookDeliveryWorker.on('error', (error) => {
     console.error('[Worker] Worker error:', error.message);
+    scheduleRestart();
   });
 
   console.log('[WebhookDeliveryWorker] Started');
   return webhookDeliveryWorker;
+}
+
+function scheduleRestart() {
+  if (restartTimeout) return;
+  restartTimeout = setTimeout(() => {
+    restartTimeout = null;
+    webhookDeliveryWorker = null;
+    console.log('[WebhookDeliveryWorker] Attempting restart...');
+    start();
+  }, 5000);
 }
 
 async function deliverWebhook(job) {

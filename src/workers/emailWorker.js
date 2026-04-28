@@ -6,22 +6,30 @@ const { renderTemplate } = require('../utils/templateEngine');
 
 const connection = {
   connection: redisClient,
-  maxRetriesPerRequest: null
+  maxRetriesPerRequest: null,
+  enableOfflineQueue: false
 };
 
 let emailWorker = null;
+let restartTimeout = null;
 
 function start() {
   if (emailWorker) return emailWorker;
   
-  emailWorker = new Worker('email', processEmailJob, {
-    connection,
-    concurrency: 5,
-    limiter: {
-      max: 10,
-      duration: 1000
-    }
-  });
+  try {
+    emailWorker = new Worker('email', processEmailJob, {
+      connection,
+      concurrency: 5,
+      limiter: {
+        max: 10,
+        duration: 1000
+      }
+    });
+  } catch (err) {
+    console.error('[EmailWorker] Failed to start:', err.message);
+    scheduleRestart();
+    return null;
+  }
 
   emailWorker.on('completed', (job) => {
     console.log(`[EmailWorker] Job ${job.id} completed`);
@@ -33,10 +41,21 @@ function start() {
 
   emailWorker.on('error', (error) => {
     console.error('[EmailWorker] Worker error:', error.message);
+    scheduleRestart();
   });
 
   console.log('[EmailWorker] Started');
   return emailWorker;
+}
+
+function scheduleRestart() {
+  if (restartTimeout) return;
+  restartTimeout = setTimeout(() => {
+    restartTimeout = null;
+    emailWorker = null;
+    console.log('[EmailWorker] Attempting restart...');
+    start();
+  }, 5000);
 }
 
 async function processEmailJob(job) {
