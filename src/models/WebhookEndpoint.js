@@ -75,6 +75,16 @@ const webhookEndpointSchema = new mongoose.Schema({
 webhookEndpointSchema.index({ workspaceId: 1, isActive: 1 });
 webhookEndpointSchema.index({ workspaceId: 1, status: 1 });
 
+webhookEndpointSchema.pre('save', function(next) {
+  if (!this.secret) {
+    const rawSecret = crypto.randomBytes(24).toString('hex');
+    const hashedSecret = crypto.createHash('sha256').update(rawSecret).digest('hex');
+    this.secret = hashedSecret;
+    this.secretPrefix = rawSecret.substring(0, 6);
+  }
+  next();
+});
+
 webhookEndpointSchema.methods.generateSecret = function() {
   const rawSecret = crypto.randomBytes(24).toString('hex');
   const hashedSecret = crypto.createHash('sha256').update(rawSecret).digest('hex');

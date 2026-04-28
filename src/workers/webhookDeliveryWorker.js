@@ -97,11 +97,12 @@ async function deliverWebhook(job) {
     const payload = delivery.requestBody;
     
     if (!endpoint.secret) {
-      console.error(`[WebhookDelivery] ${deliveryId}: No secret for endpoint ${endpointId}`);
-      delivery.status = 'failed';
-      delivery.error = 'Endpoint secret missing';
-      await delivery.save();
-      return;
+      const rawSecret = crypto.randomBytes(24).toString('hex');
+      const hashedSecret = crypto.createHash('sha256').update(rawSecret).digest('hex');
+      endpoint.secret = hashedSecret;
+      endpoint.secretPrefix = rawSecret.substring(0, 6);
+      await endpoint.save();
+      console.log(`[WebhookDelivery] ${deliveryId}: Generated secret for endpoint ${endpointId}`);
     }
     
     const secretKey = Buffer.from(endpoint.secret, 'hex');
