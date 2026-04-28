@@ -2,23 +2,8 @@ const Job = require('../models/Job');
 const JobDefinition = require('../models/JobDefinition');
 const { genericJobQueue } = require('../config/queues');
 
-const PRIORITY_MAP = {
-  critical: 1,
-  high: 2,
-  normal: 3,
-  low: 4
-};
-
-function toPriorityString(val) {
-  if (val === 1 || val === '1' || val === 'critical') return 'critical';
-  if (val === 2 || val === '2' || val === 'high') return 'high';
-  if (val === 3 || val === '3' || val === 'normal' || val === 0 || val === '0') return 'normal';
-  return 'normal';
-}
-
 async function enqueueJob(workspaceId, name, payload = {}, options = {}) {
   const { priority = 'normal', delay, scheduledFor, maxAttempts } = options;
-  const priorityStr = toPriorityString(priority);
   
   let definition = await JobDefinition.findOne({
     workspaceId,
@@ -31,13 +16,13 @@ async function enqueueJob(workspaceId, name, payload = {}, options = {}) {
       name,
       handler: options.handler || 'log-message',
       description: options.description || '',
-      defaultPriority: priorityStr,
+      defaultPriority: priority,
       maxAttempts: maxAttempts || 3,
       defaultTimeout: options.timeout || 30000
     });
   }
   
-  const priorityNumber = Job.getPriorityNumber(priorityStr);
+  const priorityNumber = Job.getPriorityNumber(priority);
   
   const job = await Job.create({
     workspaceId,
@@ -64,18 +49,15 @@ async function enqueueJob(workspaceId, name, payload = {}, options = {}) {
     bullOptions.delay = Math.max(0, delayMs);
   }
   
-  const bullJob = await Promise.race([
-    genericJobQueue.add(name, {
-      jobId: job._id.toString(),
-      handler: definition.handler,
-      payload,
-      workspaceId: workspaceId.toString(),
-      definitionId: definition._id.toString(),
-      maxAttempts: bullOptions.attempts,
-      timeout: bullOptions.timeout
-    }, bullOptions),
-    new Promise((_, reject) => setTimeout(() => reject(new Error('Queue timeout')), 5000))
-  ]);
+  const bullJob = await genericJobQueue.add(name, {
+    jobId: job._id.toString(),
+    handler: definition.handler,
+    payload,
+    workspaceId: workspaceId.toString(),
+    definitionId: definition._id.toString(),
+    maxAttempts: bullOptions.attempts,
+    timeout: bullOptions.timeout
+  }, bullOptions);
   
   job.bullJobId = bullJob.id;
   await job.save();

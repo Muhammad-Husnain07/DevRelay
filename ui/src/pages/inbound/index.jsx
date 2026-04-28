@@ -15,24 +15,15 @@ export default function InboundList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['inbound', workspace?.slug],
-    queryFn: async () => {
-      if (!workspace?.slug) return { inboundWebhooks: [] };
-      const res = await listInbound(workspace.slug);
-      return res.data;
-    },
-    enabled: !!workspace?.slug,
-    staleTime: 0
+    queryFn: () => workspace?.slug ? listInbound(workspace.slug) : Promise.resolve({ data: [] }),
+    enabled: !!workspace?.slug
   });
 
-  const getInboundWebhooks = () => {
-    const webhooks = data?.inboundWebhooks || [];
-    if (!search) return webhooks;
-    return webhooks.filter(e => 
-      e.name.toLowerCase().includes(search.toLowerCase()) || e.slug.includes(search)
-    );
-  };
+  const filtered = data?.data?.inbound?.filter(e => 
+    !search || e.name.toLowerCase().includes(search.toLowerCase()) || e.slug.includes(search)
+  ) || [];
 
   if (isLoading) {
     return <div className="flex items-center justify-center p-8"><Spinner size="lg" /></div>;
@@ -47,12 +38,6 @@ export default function InboundList() {
           <h1 className="text-2xl font-bold text-devrelay-text">Inbound Webhooks</h1>
           <p className="text-devrelay-text-dim mt-1">Receive webhooks from external services</p>
         </div>
-        <button
-          onClick={() => navigate('/inbound/new')}
-          className="bg-devrelay-green text-devrelay-bg font-medium px-4 py-2 rounded hover:bg-devrelay-green-dim"
-        >
-          Add Inbound
-        </button>
       </div>
 
       <div className="flex gap-4 mb-6">
@@ -68,16 +53,16 @@ export default function InboundList() {
         </div>
       </div>
 
-      {(getInboundWebhooks().length === 0) ? (
+      {filtered.length === 0 ? (
         <EmptyState
           title="No inbound webhooks"
           description="Create an inbound webhook to receive events from external services"
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {getInboundWebhooks().map((inbound) => (
+          {filtered.map((inbound) => (
             <div
-              key={inbound.id || inbound._id}
+              key={inbound._id || inbound.id}
               onClick={() => navigate(`/inbound/${inbound.slug}`)}
               className="bg-devrelay-surface border border-devrelay-border rounded-lg p-6 cursor-pointer hover:border-devrelay-green/50 transition-all"
             >

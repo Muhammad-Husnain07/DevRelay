@@ -22,8 +22,8 @@ async function seed() {
 
   await clearCollections();
   
-  const { admin, demo, user1, user2 } = await createUsers();
-  const workspaces = await createWorkspaces(admin, demo, user1, user2);
+  const { admin, user1, user2 } = await createUsers();
+  const workspaces = await createWorkspaces(admin, user1, user2);
   
   for (const ws of workspaces) {
     await createWebhookEndpoints(ws);
@@ -78,7 +78,6 @@ async function createUsers() {
   
   const adminPassword = await bcrypt.hash('admin123', 10);
   const userPassword = await bcrypt.hash('user123', 10);
-  const demoPassword = await bcrypt.hash('demo123', 10);
 
   const admin = await User.create({
     name: 'Admin User',
@@ -86,14 +85,6 @@ async function createUsers() {
     password: adminPassword,
     isActive: true,
     role: 'admin'
-  });
-
-  const demo = await User.create({
-    name: 'Demo User',
-    email: 'demo@devrelay.io',
-    password: demoPassword,
-    isActive: true,
-    github: { id: 'demo123', username: 'demo' }
   });
 
   const user1 = await User.create({
@@ -112,11 +103,11 @@ async function createUsers() {
     github: { id: '67890', username: 'janesmith' }
   });
 
-  console.log(`  ✓ Created 4 users (admin, demo, john, jane)`);
-  return { admin, demo, user1, user2 };
+  console.log(`  ✓ Created 3 users (admin, john, jane)`);
+  return { admin, user1, user2 };
 }
 
-async function createWorkspaces(admin, demo, user1, user2) {
+async function createWorkspaces(admin, user1, user2) {
   console.log('[Seed] Creating workspaces...');
 
   const ws1 = await Workspace.create({
@@ -141,19 +132,8 @@ async function createWorkspaces(admin, demo, user1, user2) {
     isActive: true
   });
 
-  const wsDemo = await Workspace.create({
-    name: 'DevRelay Demo',
-    slug: 'demo-workspace',
-    ownerId: demo._id,
-    members: [
-      { userId: demo._id, role: 'owner' },
-      { userId: admin._id, role: 'admin' }
-    ],
-    isActive: true
-  });
-
-  console.log(`  ✓ Created 3 workspaces (acme, techstart, demo-workspace)`);
-  return [ws1, ws2, wsDemo];
+  console.log(`  ✓ Created 2 workspaces (acme, techstart)`);
+  return [ws1, ws2];
 }
 
 async function createWebhookEndpoints(workspace) {

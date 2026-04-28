@@ -1,104 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const cron = require('node-cron');
-const cronstrue = require('cronstrue');
 const ScheduledJob = require('../models/ScheduledJob');
 const ScheduledJobRun = require('../models/ScheduledJobRun');
 const cronManager = require('../scheduler/cronManager');
 const { authenticate } = require('../middleware/auth');
 const { resolveWorkspace } = require('../middleware/workspace');
 
-function validateCronExpression(expression) {
-  const parts = expression.trim().split(/\s+/);
-  if (parts.length === 5) {
-    return cron.validate(expression);
-  }
-  if (parts.length === 6) {
-    const seconds = parts[0];
-    const minutes = parts[1];
-    const hours = parts[2];
-    const dayOfMonth = parts[3];
-    const month = parts[4];
-    const dayOfWeek = parts[5];
-    
-    const inRange = (v, min, max) => {
-      if (v === '*') return true;
-      if (v.startsWith('*/')) {
-        const step = parseInt(v.slice(2));
-        return step >= 1;
-      }
-      if (v.includes(',')) {
-        return v.split(',').every(x => inRange(x.trim(), min, max));
-      }
-      if (v.includes('-')) {
-        const [start, end] = v.split('-').map(Number);
-        return start >= min && end <= max && start <= end;
-      }
-      const num = parseInt(v);
-      return !isNaN(num) && num >= min && num <= max;
-    };
-    
-    return (
-      inRange(seconds, 0, 59) &&
-      inRange(minutes, 0, 59) &&
-      inRange(hours, 0, 23) &&
-      inRange(dayOfMonth, 1, 31) &&
-      inRange(month, 1, 12) &&
-      inRange(dayOfWeek, 0, 7)
-    );
-  }
-  return false;
-}
-
-// Validate cron - NO auth required (public endpoint)
-router.post('/validate-cron', async (req, res) => {
-  try {
-    const { expression } = req.body;
-    
-    if (!expression) {
-      return res.status(400).json({ error: 'Cron expression is required' });
-    }
-    
-    const parts = expression.trim().split(/\s+/);
-    const is6Field = parts.length === 6;
-    const isValid = validateCronExpression(expression);
-    
-    if (!isValid) {
-      return res.json({ valid: false, error: 'Invalid cron expression' });
-    }
-    
-    let description = '';
-    try {
-      description = cronstrue.toString(expression, { verbose: true, use24HourTimeFormat: true });
-    } catch (err) {
-      description = is6Field ? 'Every X seconds' : 'Cron expression';
-    }
-    
-    const nextRuns = [];
-    let current = new Date();
-    
-    const interval = is6Field ? 1000 : 60000;
-    for (let i = 0; i < 5; i += 1) {
-      current = new Date(current.getTime() + interval);
-      nextRuns.push(current.toISOString());
-    }
-    
-    res.json({
-      valid: true,
-      description,
-      nextRuns,
-      expression,
-      is6Field: !!is6Field
-    });
-  } catch (error) {
-    console.error('Validate cron error:', error);
-    res.status(500).json({ error: 'Failed to validate cron expression' });
-  }
-});
-
-// All routes below require authentication
 router.use(authenticate);
-
 router.use('/:workspaceSlug', resolveWorkspace);
 
 /**
@@ -146,40 +55,12 @@ router.post('/:workspaceSlug/scheduled-jobs', async (req, res) => {
       return res.status(400).json({ error: 'Name, cronExpression, and action are required' });
     }
     
-    // Validate cron expression
-    if (!validateCronExpression(cronExpression)) {
+    if (!cron.validate(cronExpression)) {
       return res.status(400).json({ error: 'Invalid cron expression' });
     }
     
-    // Normalize action type and config
-    let actionType = 'http-request';
-    let actionConfig = {};
-    
-    const actType = action.type || action.actionType || '';
-    
-    if (actType === 'http-request' || actType === 'http') {
-      actionType = 'http-request';
-      actionConfig = {
-        url: action.url || '',
-        method: action.method || 'GET',
-        headers: action.headers || [],
-        body: action.body || ''
-      };
-    } else if (actType === 'enqueue-job' || actType === 'job') {
-      actionType = 'enqueue-job';
-      actionConfig = {
-        handler: action.handler || 'log-message',
-        config: action.config || {}
-      };
-    } else if (actType === 'webhook-event' || actType === 'event') {
-      actionType = 'webhook-event';
-      actionConfig = {
-        eventType: action.eventType || '',
-        payload: action.payload || {}
-      };
-    } else {
-      actionType = 'http-request';
-      actionConfig = { url: '', method: 'GET', headers: [], body: '' };
+    if (!['http-request', 'enqueue-job', 'webhook-event'].includes(action.type)) {
+      return res.status(400).json({ error: 'Invalid action type' });
     }
     
     const job = await ScheduledJob.create({
@@ -188,12 +69,11 @@ router.post('/:workspaceSlug/scheduled-jobs', async (req, res) => {
       description: description || '',
       cronExpression,
       timezone: timezone || 'UTC',
-      action: { type: actionType, config: actionConfig },
+      action,
       timeout: timeout || 30000,
       maxConsecutiveFailures: maxConsecutiveFailures || 5
     });
     
-    // Schedule the job if active
     if (job.isActive) {
       await cronManager.scheduleJob(job);
     }
@@ -402,6 +282,49 @@ router.get('/:workspaceSlug/scheduled-jobs/:id/history', async (req, res) => {
   } catch (error) {
     console.error('Get history error:', error);
     res.status(500).json({ error: 'Failed to get run history' });
+  }
+});
+
+const cronstrue = require('cronstrue');
+
+router.post('/validate-cron', async (req, res) => {
+  try {
+    const { expression, timezone } = req.body;
+    
+    if (!expression) {
+      return res.status(400).json({ error: 'Cron expression is required' });
+    }
+    
+    const isValid = cron.validate(expression);
+    
+    if (!isValid) {
+      return res.json({ valid: false, error: 'Invalid cron expression' });
+    }
+    
+    let description = '';
+    try {
+      description = cronstrue.toString(expression, { verbose: true });
+    } catch (err) {
+      description = 'Cron expression';
+    }
+    
+    const nextRuns = [];
+    let current = new Date();
+    
+    for (let i = 0; i < 5; i += 1) {
+      current = new Date(current.getTime() + 60000);
+      nextRuns.push(current.toISOString());
+    }
+    
+    res.json({
+      valid: true,
+      description,
+      nextRuns,
+      expression
+    });
+  } catch (error) {
+    console.error('Validate cron error:', error);
+    res.status(500).json({ error: 'Failed to validate cron expression' });
   }
 });
 

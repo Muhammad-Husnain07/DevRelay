@@ -33,7 +33,7 @@ const scheduledJobSchema = new mongoose.Schema({
     },
     config: {
       type: mongoose.Schema.Types.Mixed,
-      default: {}
+      required: true
     }
   },
   isActive: {
@@ -144,8 +144,7 @@ scheduledJobSchema.methods.getPublic = function() {
     cronExpression: this.cronExpression,
     timezone: this.timezone,
     action: {
-      type: this.action.type,
-      config: this.action.config || {}
+      type: this.action.type
     },
     isActive: this.isActive,
     lastRunAt: this.lastRunAt,

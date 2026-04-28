@@ -3,7 +3,6 @@ const router = express.Router();
 const workspaceController = require('../controllers/workspaceController');
 const { authenticate } = require('../middleware/auth');
 const { resolveWorkspace, requireWorkspaceAdmin, requireWorkspaceOwner } = require('../middleware/workspace');
-const asyncHandler = require('../utils/asyncHandler');
 
 router.use(authenticate);
 
@@ -60,7 +59,6 @@ router.use(authenticate);
  */
 router.post('/', workspaceController.createWorkspace);
 router.get('/', workspaceController.getWorkspaces);
-router.get('/summary', workspaceController.getWorkspaces);
 
 /**
  * @swagger
@@ -265,30 +263,5 @@ router.put('/:workspaceSlug/members/:userId/role', requireWorkspaceAdmin, worksp
  *         description: Workspace stats
  */
 router.get('/:workspaceSlug/stats', workspaceController.getStats);
-
-const ApiKey = require('../models/ApiKey');
-
-router.get('/:workspaceSlug/api-keys', asyncHandler(async (req, res) => {
-  const keys = await ApiKey.find({ workspaceId: req.workspace._id, userId: req.user._id })
-    .select('-key')
-    .sort({ createdAt: -1 });
-  res.json({ keys });
-}));
-
-router.post('/:workspaceSlug/api-keys', asyncHandler(async (req, res) => {
-  const { name, scopes, expiresInDays } = req.body;
-  const key = await req.user.generateApiKey(name, scopes, expiresInDays, req.workspace._id);
-  res.json({ key });
-}));
-
-router.delete('/:workspaceSlug/api-keys/:id', asyncHandler(async (req, res) => {
-  const key = await ApiKey.findOneAndDelete({
-    _id: req.params.id,
-    userId: req.user._id,
-    workspaceId: req.workspace._id
-  });
-  if (!key) return res.status(404).json({ error: 'API key not found' });
-  res.json({ message: 'API key revoked' });
-}));
 
 module.exports = router;

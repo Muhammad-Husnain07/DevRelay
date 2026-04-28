@@ -249,9 +249,9 @@ export default function Gateway() {
     });
   };
 
-  const routes = routesData?.routes || [];
-  const consumers = consumersData?.consumers || [];
-  const logs = logsData?.logs || [];
+  const routes = routesData?.data?.routes || [];
+  const consumers = consumersData?.data?.consumers || [];
+  const logs = logsData?.data?.logs || [];
   const stats = statsData?.data;
 
   if (routesLoading || consumersLoading) {

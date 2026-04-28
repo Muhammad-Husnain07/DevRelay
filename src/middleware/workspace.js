@@ -18,7 +18,6 @@ exports.resolveWorkspace = async (req, res, next) => {
     }
 
     req.workspace = workspace;
-    res.locals.workspace = workspace;
     next();
   } catch (error) {
     console.error('Resolve workspace error:', error);

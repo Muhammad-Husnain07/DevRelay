@@ -4,7 +4,7 @@ const env = require('./env');
 console.log('[Redis] Initializing with URL:', env.redisUrl);
 
 const redisClient = new Redis(env.redisUrl, {
-  maxRetriesPerRequest: null,
+  maxRetriesPerRequest: 3,
   retryStrategy(times) {
     const delay = Math.min(times * 100, 3000);
     return delay;

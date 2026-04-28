@@ -122,19 +122,31 @@ export default function JobDetail() {
   const { workspace } = useWorkspace();
   const [jobState, setJobState] = useState(null);
 
-  const { data, isLoading, refetch, error } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ['job', workspace?.slug, id],
     queryFn: () => getJob(workspace.slug, id),
-    enabled: !!workspace?.slug && !!id,
-    staleTime: 0
+    enabled: !!workspace?.slug && !!id
   });
 
-  if (error) {
-    return <div className="p-8 text-devrelay-red">Error: {error.message}</div>;
-  }
-  
-const rawData = data?.data || data;
-  const baseJob = rawData?.job;
+  useSocketEvent('job:started', (payload) => {
+    if (payload.jobId === id) {
+      setJobState(prev => ({ ...prev, status: 'active', processedAt: payload.timestamp }));
+    }
+  });
+
+  useSocketEvent('job:completed', (payload) => {
+    if (payload.jobId === id) {
+      setJobState(prev => ({ ...prev, status: 'completed', finishedAt: payload.timestamp, returnvalue: payload.result }));
+    }
+  });
+
+  useSocketEvent('job:failed', (payload) => {
+    if (payload.jobId === id) {
+      setJobState(prev => ({ ...prev, status: 'failed', finishedAt: payload.timestamp, failReason: payload.error }));
+    }
+  });
+
+  const baseJob = data?.data?.job;
   const job = jobState || baseJob;
 
   const retryMutation = useMutation({

@@ -189,7 +189,7 @@ export default function Alerts() {
     mutationFn: (id) => testAlertRule(workspace.slug, id),
     onSuccess: (res) => {
       setTestResult(res.data);
-      toast.success(`Current value: ${res.currentValue}`);
+      toast.success(`Current value: ${res.data?.currentValue}`);
     },
     onError: (err) => toast.error(err.response?.data?.error || 'Failed')
   });
@@ -214,8 +214,8 @@ export default function Alerts() {
     setTestResult(null);
   };
 
-  const rules = rulesData?.rules || [];
-  const alerts = alertsData?.alerts || [];
+  const rules = rulesData?.data?.rules || [];
+  const alerts = alertsData?.data?.alerts || [];
 
   if (rulesLoading || alertsLoading) {
     return <div className="flex items-center justify-center p-8"><Spinner size="lg" /></div>;

@@ -133,7 +133,6 @@ app.use('/api/workspaces', consumerRoutes);
 app.use('/api/workspaces', metricsRoutes);
 app.use('/api/workspaces', alertRoutes);
 app.use('/api/scheduler', schedulerRoutes);
-app.use('/api/v1/scheduler', schedulerRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/gw', gatewayProxy);
 

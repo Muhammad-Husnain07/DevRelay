@@ -2,8 +2,8 @@ const { Queue } = require('bullmq');
 const { redisClient } = require('./redis');
 
 const connection = {
-  host: 'redis',
-  port: 6379
+  connection: redisClient,
+  maxRetriesPerRequest: null
 };
 
 const webhookDeliveryQueue = new Queue('webhook-delivery', {

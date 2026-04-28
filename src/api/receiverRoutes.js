@@ -1,5 +1,4 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const InboundWebhook = require('../models/InboundWebhook');
 const { verifyInboundWebhook, extractEventType, transformPayload } = require('../services/signatureVerifier');
 const { dispatchEvent } = require('../services/webhookService');
@@ -9,20 +8,9 @@ const { redisClient } = require('../config/redis');
 
 const router = express.Router();
 
-console.log('[ReceiverRoutes] Loading...');
-
 const MAX_REQUEST_HISTORY = 20;
 
-const findInboundByIdOrSlug = async (id, workspaceId) => {
-  if (mongoose.Types.ObjectId.isValid(id) && id.length === 24) {
-    const byId = await InboundWebhook.findOne({ _id: id, workspaceId });
-    if (byId) return byId;
-  }
-  return InboundWebhook.findOne({ slug: id, workspaceId });
-};
-
-router.post('/:slug', express.raw({ type: '*/*' }), async (req, res) => {
-  console.log('[Receiver] POST /:slug called with slug:', req.params.slug);
+router.post('/receive/:slug', express.raw({ type: '*/*' }), async (req, res) => {
   try {
     const inbound = await InboundWebhook.findOne({ slug: req.params.slug });
     
@@ -154,13 +142,16 @@ router.post('/:workspaceSlug/inbound', authenticate, resolveWorkspace, async (re
 
 router.get('/:workspaceSlug/inbound/:id', authenticate, resolveWorkspace, async (req, res) => {
   try {
-    const inbound = await findInboundByIdOrSlug(req.params.id, req.workspace._id);
+    const inbound = await InboundWebhook.findOne({
+      _id: req.params.id,
+      workspaceId: req.workspace._id
+    });
     
     if (!inbound) {
       return res.status(404).json({ error: 'Inbound webhook not found' });
     }
     
-    res.json({ inboundWebhooks: [inbound.getPublic()] });
+    res.json({ inboundWebhook: inbound.getPublic() });
   } catch (error) {
     console.error('Get inbound error:', error);
     res.status(500).json({ error: 'Failed to get inbound webhook' });
@@ -169,7 +160,10 @@ router.get('/:workspaceSlug/inbound/:id', authenticate, resolveWorkspace, async 
 
 router.put('/:workspaceSlug/inbound/:id', authenticate, resolveWorkspace, async (req, res) => {
   try {
-    const inbound = await findInboundByIdOrSlug(req.params.id, req.workspace._id);
+    const inbound = await InboundWebhook.findOne({
+      _id: req.params.id,
+      workspaceId: req.workspace._id
+    });
     
     if (!inbound) {
       return res.status(404).json({ error: 'Inbound webhook not found' });
@@ -190,7 +184,7 @@ router.put('/:workspaceSlug/inbound/:id', authenticate, resolveWorkspace, async 
     
     await inbound.save();
     
-    res.json({ inboundWebhooks: [inbound.getPublic()] });
+    res.json({ inboundWebhook: inbound.getPublic() });
   } catch (error) {
     console.error('Update inbound error:', error);
     res.status(500).json({ error: 'Failed to update inbound webhook' });
@@ -199,24 +193,10 @@ router.put('/:workspaceSlug/inbound/:id', authenticate, resolveWorkspace, async 
 
 router.delete('/:workspaceSlug/inbound/:id', authenticate, resolveWorkspace, async (req, res) => {
   try {
-    const inbound = await findInboundByIdOrSlug(req.params.id, req.workspace._id);
-    
-    if (!inbound) {
-      return res.status(404).json({ error: 'Inbound webhook not found' });
-    }
-    
-    await inbound.deleteOne();
-    
-    res.json({ message: 'Inbound webhook deleted' });
-  } catch (error) {
-    console.error('Delete inbound error:', error);
-    res.status(500).json({ error: 'Failed to delete inbound webhook' });
-  }
-});
-
-router.post('/:workspaceSlug/inbound/:id/rotate-secret', authenticate, resolveWorkspace, async (req, res) => {
-  try {
-    const inbound = await findInboundByIdOrSlug(req.params.id, req.workspace._id);
+    const inbound = await InboundWebhook.findOne({
+      _id: req.params.id,
+      workspaceId: req.workspace._id
+    });
     
     if (!inbound) {
       return res.status(404).json({ error: 'Inbound webhook not found' });
@@ -258,7 +238,10 @@ router.post('/:workspaceSlug/inbound/:id/rotate-secret', authenticate, resolveWo
 
 router.get('/:workspaceSlug/inbound/:id/requests', authenticate, resolveWorkspace, async (req, res) => {
   try {
-    const inbound = await findInboundByIdOrSlug(req.params.id, req.workspace._id);
+    const inbound = await InboundWebhook.findOne({
+      _id: req.params.id,
+      workspaceId: req.workspace._id
+    });
     
     if (!inbound) {
       return res.status(404).json({ error: 'Inbound webhook not found' });

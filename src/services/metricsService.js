@@ -10,18 +10,10 @@ const incrementCounter = async (workspaceId, metric, value = 1) => {
 };
 
 const getQueueDepth = async (queueName) => {
-  try {
-    const queue = getQueues()[queueName];
-    if (!queue) return { waiting: 0, active: 0, completed: 0, failed: 0 };
-    const counts = await Promise.race([
-      queue.getJobCounts(),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3000))
-    ]);
-    return counts;
-  } catch (error) {
-    console.error('Queue depth error:', error.message);
-    return { waiting: 0, active: 0, completed: 0, failed: 0 };
-  }
+  const queue = getQueues()[queueName];
+  if (!queue) return { waiting: 0, active: 0, completed: 0, failed: 0 };
+  const counts = await queue.getJobCounts();
+  return counts;
 };
 
 const getLiveStats = async (workspaceId) => {
