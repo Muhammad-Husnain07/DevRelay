@@ -17,7 +17,7 @@ const webhookEventSchema = new mongoose.Schema({
   },
   source: {
     type: String,
-    enum: ['api', 'sdk', 'test', 'schedule'],
+    enum: ['api', 'sdk', 'test', 'schedule', 'inbound'],
     default: 'api'
   },
   deliveryCount: {
