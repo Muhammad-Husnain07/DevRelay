@@ -79,7 +79,7 @@ router.post('/:workspaceSlug/alerts/evaluate', asyncHandler(async (req, res) => 
 }));
 
 router.get('/:workspaceSlug/alerts', asyncHandler(async (req, res) => {
-  const workspace = res.locals.workspace;
+  const workspace = req.workspace;
   const alerts = await Alert.find({ workspaceId: workspace._id }).sort({ createdAt: -1 }).limit(100);
   res.json({ alerts });
 }));

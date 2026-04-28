@@ -4,6 +4,7 @@ const WebhookEndpoint = require('../models/WebhookEndpoint');
 const WebhookDelivery = require('../models/WebhookDelivery');
 const { authenticate } = require('../middleware/auth');
 const { resolveWorkspace } = require('../middleware/workspace');
+const crypto = require('crypto');
 
 /**
  * @swagger
@@ -186,8 +187,7 @@ router.delete('/:workspaceSlug/webhooks/:id', authenticate, resolveWorkspace, as
       return res.status(404).json({ error: 'Endpoint not found' });
     }
     
-    endpoint.isActive = false;
-    await endpoint.save();
+    await endpoint.deleteOne();
     
     res.json({ message: 'Endpoint deleted successfully' });
   } catch (error) {
@@ -243,7 +243,71 @@ router.post('/:workspaceSlug/webhooks/:id/test', authenticate, resolveWorkspace,
       return res.status(404).json({ error: 'Endpoint not found' });
     }
     
-    res.json({ message: 'Test delivery not yet implemented' });
+    const payload = req.body.payload || {
+      test: true,
+      event: 'test.trigger',
+      data: {
+        message: 'Test webhook from DevRelay',
+        timestamp: new Date().toISOString()
+      }
+    };
+    
+    const bodyStr = typeof payload === 'string' ? payload : JSON.stringify(payload);
+    const secret = endpoint.secret || '';
+    const signature = crypto
+      .createHmac('sha256', secret)
+      .update(bodyStr)
+      .digest('hex');
+    
+    const urlObj = new URL(endpoint.url);
+    const options = {
+      hostname: urlObj.hostname,
+      port: urlObj.port || (urlObj.protocol === 'https:' ? 443 : 80),
+      path: urlObj.pathname + urlObj.search,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'DevRelay-Webhook/1.0',
+        'X-DevRelay-Signature': signature,
+        'X-DevRelay-Event': 'test.trigger',
+        'X-DevRelay-Timestamp': Date.now().toString(),
+        'Content-Length': Buffer.byteLength(bodyStr)
+      }
+    };
+    
+    const protocol = urlObj.protocol === 'https:' ? require('https') : require('http');
+    
+    const webhookReq = protocol.request(options, (response) => {
+      let responseData = '';
+      response.on('data', chunk => responseData += chunk);
+      response.on('end', () => {
+        res.json({
+          success: response.statusCode >= 200 && response.statusCode < 300,
+          statusCode: response.statusCode,
+          response: responseData.substring(0, 500)
+        });
+      });
+    });
+    
+    webhookReq.on('error', (err) => {
+      res.json({
+        success: false,
+        error: err.message,
+        statusCode: 0
+      });
+    });
+    
+    webhookReq.setTimeout(30000, () => {
+      webhookReq.destroy();
+      res.json({
+        success: false,
+        error: 'Timeout',
+        statusCode: 0
+      });
+    });
+    
+    webhookReq.write(bodyStr);
+    webhookReq.end();
   } catch (error) {
     console.error('Test endpoint error:', error);
     res.status(500).json({ error: 'Failed to test endpoint' });

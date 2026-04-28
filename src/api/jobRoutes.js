@@ -85,20 +85,29 @@ router.get('/:workspaceSlug/jobs', async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     
     const jobs = await Job.find(query)
+      .populate('definitionId', 'handler name')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
     
+    const jobsWithHandler = jobs.map(j => {
+      const jobData = j.getPublic();
+      jobData.handler = j.definitionId?.handler || 'log-message';
+      return jobData;
+    });
+    
     const total = await Job.countDocuments(query);
+    const stats = await getJobStats(req.workspace._id);
     
     res.json({
-      jobs: jobs.map(j => j.getPublic()),
+      jobs: jobsWithHandler,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
         total,
         pages: Math.ceil(total / parseInt(limit))
-      }
+      },
+      stats
     });
   } catch (error) {
     console.error('List jobs error:', error);
