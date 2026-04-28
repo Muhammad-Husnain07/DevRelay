@@ -246,6 +246,11 @@ router.post('/:workspaceSlug/webhooks/:id/test', authenticate, resolveWorkspace,
     const crypto = require('crypto');
     const axios = require('axios');
 
+    if (!endpoint.secret) {
+      endpoint.generateSecret();
+      await endpoint.save();
+    }
+    
     const secretKey = Buffer.from(endpoint.secret, 'hex');
     
     const testPayload = {
