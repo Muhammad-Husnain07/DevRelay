@@ -39,7 +39,7 @@ async function start() {
     console.log('[Redis] Connected');
 
     // Ensure Redis is fully ready before proceeding
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 3000));
     
     await createTransport();
     console.log('[Email] Service initialized');
@@ -56,8 +56,8 @@ async function start() {
     cronManager.loadAll();
     console.log('[Cron] Manager loaded');
 
-    // Wait for Redis to be fully ready before starting workers
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Add longer delays before starting workers to ensure Redis is fully ready
+    await new Promise(resolve => setTimeout(resolve, 5000));
     
     startQuotaWorker();
     startMetricsAggregator();
