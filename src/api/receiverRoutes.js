@@ -4,7 +4,14 @@ const { verifyInboundWebhook, extractEventType, transformPayload } = require('..
 const { dispatchEvent } = require('../services/webhookService');
 const { authenticate } = require('../middleware/auth');
 const { resolveWorkspace } = require('../middleware/workspace');
-const { redisClient } = require('../config/redis');
+const IORedis = require('ioredis');
+
+const redisClient = new IORedis({
+  host: 'redis',
+  port: 6379,
+  maxRetriesPerRequest: null,
+  retryStrategy: (times) => Math.min(times * 100, 3000)
+});
 
 const router = express.Router();
 
