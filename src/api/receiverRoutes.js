@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const InboundWebhook = require('../models/InboundWebhook');
 const { verifyInboundWebhook, extractEventType, transformPayload } = require('../services/signatureVerifier');
 const { dispatchEvent } = require('../services/webhookService');
@@ -149,10 +150,13 @@ router.post('/:workspaceSlug/inbound', authenticate, resolveWorkspace, async (re
 
 router.get('/:workspaceSlug/inbound/:id', authenticate, resolveWorkspace, async (req, res) => {
   try {
-    const inbound = await InboundWebhook.findOne({
-      _id: req.params.id,
-      workspaceId: req.workspace._id
-    });
+    const { id } = req.params;
+    
+    const query = mongoose.isValidObjectId(id) 
+      ? { _id: id, workspaceId: req.workspace._id }
+      : { slug: id, workspaceId: req.workspace._id };
+    
+    const inbound = await InboundWebhook.findOne(query);
     
     if (!inbound) {
       return res.status(404).json({ error: 'Inbound webhook not found' });
@@ -167,10 +171,12 @@ router.get('/:workspaceSlug/inbound/:id', authenticate, resolveWorkspace, async 
 
 router.put('/:workspaceSlug/inbound/:id', authenticate, resolveWorkspace, async (req, res) => {
   try {
-    const inbound = await InboundWebhook.findOne({
-      _id: req.params.id,
-      workspaceId: req.workspace._id
-    });
+    const { id } = req.params;
+    const query = mongoose.isValidObjectId(id) 
+      ? { _id: id, workspaceId: req.workspace._id }
+      : { slug: id, workspaceId: req.workspace._id };
+    
+    const inbound = await InboundWebhook.findOne(query);
     
     if (!inbound) {
       return res.status(404).json({ error: 'Inbound webhook not found' });
@@ -200,10 +206,12 @@ router.put('/:workspaceSlug/inbound/:id', authenticate, resolveWorkspace, async 
 
 router.delete('/:workspaceSlug/inbound/:id', authenticate, resolveWorkspace, async (req, res) => {
   try {
-    const inbound = await InboundWebhook.findOne({
-      _id: req.params.id,
-      workspaceId: req.workspace._id
-    });
+    const { id } = req.params;
+    const query = mongoose.isValidObjectId(id) 
+      ? { _id: id, workspaceId: req.workspace._id }
+      : { slug: id, workspaceId: req.workspace._id };
+    
+    const inbound = await InboundWebhook.findOne(query);
     
     if (!inbound) {
       return res.status(404).json({ error: 'Inbound webhook not found' });
@@ -221,10 +229,12 @@ router.delete('/:workspaceSlug/inbound/:id', authenticate, resolveWorkspace, asy
 
 router.post('/:workspaceSlug/inbound/:id/rotate-secret', authenticate, resolveWorkspace, async (req, res) => {
   try {
-    const inbound = await InboundWebhook.findOne({
-      _id: req.params.id,
-      workspaceId: req.workspace._id
-    });
+    const { id } = req.params;
+    const query = mongoose.isValidObjectId(id) 
+      ? { _id: id, workspaceId: req.workspace._id }
+      : { slug: id, workspaceId: req.workspace._id };
+    
+    const inbound = await InboundWebhook.findOne(query);
     
     if (!inbound) {
       return res.status(404).json({ error: 'Inbound webhook not found' });
@@ -245,10 +255,12 @@ router.post('/:workspaceSlug/inbound/:id/rotate-secret', authenticate, resolveWo
 
 router.get('/:workspaceSlug/inbound/:id/requests', authenticate, resolveWorkspace, async (req, res) => {
   try {
-    const inbound = await InboundWebhook.findOne({
-      _id: req.params.id,
-      workspaceId: req.workspace._id
-    });
+    const { id } = req.params;
+    const query = mongoose.isValidObjectId(id) 
+      ? { _id: id, workspaceId: req.workspace._id }
+      : { slug: id, workspaceId: req.workspace._id };
+    
+    const inbound = await InboundWebhook.findOne(query);
     
     if (!inbound) {
       return res.status(404).json({ error: 'Inbound webhook not found' });
