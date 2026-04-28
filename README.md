@@ -122,7 +122,9 @@ open http://localhost:3000
 - `node-cron` for expression parsing
 - `ScheduledJob` model stores all cron jobs
 - Missed job detection on restart
-- HTTP actions to external endpoints
+- Support for **5-field** (minute, hour, day, month, weekday) and **6-field** (with seconds)
+- Multiple action types: HTTP Request, Enqueue Job (log-message, send-email, http-request, webhook-call), Webhook Event
+- Real-time execution history and status tracking
 
 ### API Gateway
 - Express router proxies requests
@@ -197,170 +199,34 @@ await client.email.send('welcome', {
 });
 ```
 
-## Demo & Testing Guide
-
-### Starting the Application
-
-**Backend (Docker):**
-```bash
-# Start all services
-docker compose up -d
-
-# Check status
-docker compose ps
-
-# View logs
-docker compose logs -f api
-```
-
-**Frontend:**
-```bash
-cd ui
-npm run dev
-# Access at http://localhost:5173 (or next available port)
-```
-
-**Login Credentials:**
-- Email: `demo@devrelay.io`
-- Password: `demo123`
-
 ---
 
-### Testing Each Feature
+## Test Results
 
-#### 1. Authentication
-```bash
-# Login via API
-curl -X POST http://localhost:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"demo@devrelay.io","password":"demo123"}'
+### Scheduler Module Testing (April 2024)
 
-# Response: { "token": "eyJ...", "user": {...} }
+| Test | Status | Notes |
+|------|--------|-------|
+| Cron Validation (5-field) | ✅ PASS | `* * * * *` validates correctly |
+| Cron Validation (6-field) | ✅ PASS | `*/30 * * * * *` validates correctly |
+| Create HTTP Request Job | ✅ PASS | Creates with URL, method |
+| Create Enqueue Job (log-message) | ✅ PASS | Creates with handler config |
+| Create Enqueue Job (send-email) | ✅ PASS | Creates with to/subject/body |
+| Create Webhook Event Job | ✅ PASS | Creates with eventType/payload |
+| Execute Job (Run Now) | ✅ PASS | Triggers immediately |
+| Job Execution via Worker | ✅ PASS | LogHandler outputs message |
+
+**Test Output:**
 ```
-
-#### 2. Webhooks (Outbound)
-```bash
-# Create endpoint via UI: Webhooks → Add Endpoint
-# Or via API:
-curl -X POST http://localhost:3000/api/workspaces/demo-workspace/webhooks \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Test Endpoint",
-    "url": "https://httpbin.org/post",
-    "events": ["*"],
-    "secret": "whsec_test123"
-  }'
+✅ Login OK
+✅ HTTP Request Job created: Test HTTP Job
+✅ Enqueue Job (log-message) created: Test Log Job
+✅ Enqueue Job (send-email) created: Test Email Job
+✅ Webhook Event Job created: Test Event Job
+✅ All jobs executed
+[LogHandler] [info] Final test from scheduler!
+[GenericJobWorker] Job completed successfully
 ```
-
-#### 3. Inbound Webhooks
-```bash
-# Start smee client (forward webhooks to local):
-npx smee -u https://smee.io/mshhOZhKWjgfoMU -t http://localhost:3000/receive/demo-workspace
-
-# Send test webhook:
-curl -X POST https://smee.io/mshhOZhKWjgfoMU \
-  -H "Content-Type: application/json" \
-  -d '{"event":"test","data":{"message":"hello"}}'
-
-# Check in UI: Inbound page
-```
-
-#### 4. Jobs Queue
-```bash
-# Via UI: Jobs → Create Job
-# Or via API:
-curl -X POST http://localhost:3000/api/workspaces/demo-workspace/jobs \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Process Order",
-    "queue": "webhook-delivery",
-    "data": {"orderId": "123"},
-    "priority": 0
-  }'
-```
-
-#### 5. Cron Scheduler
-```bash
-# Via UI: Scheduler → Add Scheduled Job
-# Or via API:
-curl -X POST http://localhost:3000/api/workspaces/demo-workspace/scheduled-jobs \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Daily Backup",
-    "cronExpression": "0 9 * * *",
-    "action": {"type":"http","url":"https://httpbin.org/post"}
-  }'
-```
-
-#### 6. API Gateway
-```bash
-# Create route via UI: Gateway → Add Route
-# Then test:
-curl http://localhost:3000/gw/demo-workspace/your-route
-
-# Test rate limiting (default: 100/min):
-for i in {1..110}; do curl -I http://localhost:3000/gw/demo-workspace/test; done
-# After 100 requests, you'll get 429 Too Many Requests
-```
-
-#### 7. Alerts
-```bash
-# Via UI: Alerts → Add Rule
-# Or via API:
-curl -X POST http://localhost:3000/api/workspaces/demo-workspace/alerts/rules \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "High Failure Rate",
-    "conditionType": "failureRate",
-    "conditionConfig": {"threshold": 10},
-    "action": {"type":"email","config":{"to":"admin@example.com"}}
-  }'
-```
-
----
-
-### Quick Test Script
-
-Run all API tests:
-```bash
-node scripts/testAll.js
-```
-
-Expected output:
-- AUTH: PASS
-- Workspaces: 200
-- Webhooks: 200 (endpoints: [])
-- Inbound: 200 (1 webhook)
-- Jobs: 200 (jobs: [])
-- Scheduler: 200 (scheduledJobs: [])
-- Alerts: 200 (alerts: [])
-- API Gateway: 200 (routes: [])
-- Members: 200 (1 member - owner)
-- API Keys: 200 (keys: [])
-
----
-
-### Troubleshooting
-
-**Common Issues:**
-
-| Issue | Solution |
-|-------|----------|
-| Login fails | Reseed: `docker exec devrelay-app-1 node scripts/addDemo.js` |
-| Inbound not working | Create inbound webhook via UI or API |
-| Rate limiting kicks in | Wait 1 minute or adjust limit in settings |
-| Queue workers unavailable | Workers connect on startup - restart container |
-
-**Health Check:**
-```bash
-curl http://localhost:3000/api/health
-```
-
----
 
 ## License
 
