@@ -1,13 +1,14 @@
 const { Worker } = require('bullmq');
 const axios = require('axios');
-const { redisClient } = require('./redis');
+const { redisClient } = require('../config/redis');
 const Job = require('../models/Job');
 const { getEmitter } = require('../socket/emitter');
 const { incrementCounter } = require('../services/metricsService');
+const nodemailer = require('nodemailer');
 
 const connection = {
-  connection: redisClient,
-  maxRetriesPerRequest: null
+  host: 'redis',
+  port: 6379
 };
 
 const handlers = {
@@ -31,15 +32,53 @@ const handlers = {
   },
   
   'send-email': async (payload) => {
-    const { to, subject, text, html } = payload;
+    const { to, subject, text, html, body } = payload;
     
-    console.log(`[EmailHandler] Sending email to ${to}: ${subject}`);
+    console.log(`[EmailHandler] Sending email to ${to}: ${subject || 'No subject'}`);
     
-    return {
-      sent: true,
-      to,
-      subject
-    };
+    try {
+      const nodemailer = require('nodemailer');
+      const env = require('../config/env');
+      
+      console.log('[EmailHandler] SMTP config:', { host: env.smtpHost, port: env.smtpPort, user: env.smtpUser, passLen: env.smtpPass?.length });
+      
+      const transporter = nodemailer.createTransport({
+        host: env.smtpHost || 'smtp.gmail.com',
+        port: parseInt(env.smtpPort) || 465,
+        secure: true,
+        tls: { rejectUnauthorized: false },
+        connectionTimeout: 15000,
+        auth: {
+          user: env.smtpUser,
+          pass: env.smtpPass
+        }
+      });
+      
+      await transporter.verify();
+      console.log('[EmailHandler] SMTP verified');
+      
+      const info = await transporter.sendMail({
+        from: env.smtpUser || 'DevRelay <noreply@devrelay.local>',
+        to,
+        subject: subject || 'DevRelay Notification',
+        html: html || `<p>${text || body || ''}</p>`,
+        text: text || body
+      });
+      
+      console.log(`[EmailHandler] Email sent: ${info.messageId}`);
+      
+      await transporter.close();
+      
+      return {
+        sent: true,
+        to,
+        subject: subject || 'DevRelay Notification',
+        messageId: info.messageId
+      };
+    } catch (error) {
+      console.error(`[EmailHandler] Failed to send email:`, error.message, error.stack);
+      throw error;
+    }
   },
   
   'log-message': async (payload) => {
@@ -149,8 +188,13 @@ function registerHandler(name, fn) {
   handlers[name] = fn;
 }
 
+function start() {
+  console.log('[Worker] Generic job worker started');
+}
+
 module.exports = {
   genericJobWorker,
   registerHandler,
-  handlers
+  handlers,
+  start
 };

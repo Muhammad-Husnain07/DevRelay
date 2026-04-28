@@ -114,6 +114,8 @@ jobSchema.methods.getPublic = function() {
     scheduledFor: this.scheduledFor,
     startedAt: this.startedAt,
     completedAt: this.completedAt,
+    processedAt: this.startedAt,
+    finishedAt: this.completedAt,
     duration: this.duration,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt

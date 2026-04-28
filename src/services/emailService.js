@@ -7,14 +7,21 @@ let testAccount = null;
 
 async function createTransport() {
   try {
-    if (env.smtpHost && env.smtpPort && env.smtpUser && env.smtpPass) {
+    const smtpHost = env.smtpHost || '';
+    const smtpPort = env.smtpPort || '';
+    const smtpUser = env.smtpUser || '';
+    const smtpPass = env.smtpPass || '';
+    
+    if (smtpHost && smtpUser && smtpPass) {
+      const isGmail = smtpHost.includes('gmail') || smtpHost.includes('smtp.gmail');
       transporter = nodemailer.createTransport({
-        host: env.smtpHost,
-        port: parseInt(env.smtpPort),
-        secure: env.smtpPort === '465',
+        host: smtpHost,
+        port: parseInt(smtpPort),
+        secure: smtpPort === '465',
+        tls: isGmail ? { rejectUnauthorized: false } : undefined,
         auth: {
-          user: env.smtpUser,
-          pass: env.smtpPass
+          user: smtpUser,
+          pass: smtpPass
         }
       });
       console.log('[Email] Using configured SMTP');
@@ -31,7 +38,7 @@ async function createTransport() {
       });
       console.log('[Email] Using Ethereal test account');
     }
-
+    
     const info = await transporter.verify();
     console.log('[Email] Transport verified:', info);
     return transporter;
