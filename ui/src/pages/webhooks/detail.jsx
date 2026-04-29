@@ -498,10 +498,13 @@ export default function WebhookDetail() {
         />
       </SlideOver>
 
-      <ConfirmModal
+<ConfirmModal
         open={!!deleteConfirm}
         onClose={() => setDeleteConfirm(null)}
-        onConfirm={() => deleteMutation.mutate()}
+        onConfirm={() => {
+          const itemId = deleteConfirm?._id || deleteConfirm?.id || id;
+          if (itemId) deleteMutation.mutate(itemId);
+        }}
         title="Delete Webhook Endpoint"
         description={`Are you sure you want to delete "${deleteConfirm?.name}"? This will stop all event deliveries to this endpoint.`}
         confirmLabel="Delete"

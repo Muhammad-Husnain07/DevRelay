@@ -306,9 +306,9 @@ export default function Settings() {
       </SlideOver>
 
       <ConfirmModal
-        open={deleteConfirm}
+        open={!!deleteConfirm}
         onClose={() => setDeleteConfirm(false)}
-        onConfirm={() => deleteMutation.mutate()}
+        onConfirm={() => deleteMutation.mutate(workspace.slug)}
         title="Delete Workspace"
         description={`Are you sure you want to delete "${workspace.name}"? This is permanent.`}
         confirmLabel="Delete"

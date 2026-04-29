@@ -75,7 +75,7 @@ export default function DangerZoneSettings() {
       <ConfirmModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        onConfirm={() => deleteMutation.mutate()}
+        onConfirm={() => deleteMutation.mutate(workspace.slug)}
         title="Delete Workspace"
         description={`This is permanent. Are you absolutely sure you want to delete "${workspace?.slug}"?`}
         confirmLabel="Delete Forever"

@@ -369,7 +369,10 @@ export default function InboundDetail() {
       <ConfirmModal
         open={!!deleteConfirm}
         onClose={() => setDeleteConfirm(null)}
-        onConfirm={() => deleteMutation.mutate()}
+        onConfirm={() => {
+          const itemId = deleteConfirm?._id || inbound?.data?._id;
+          if (itemId) deleteMutation.mutate(itemId);
+        }}
         title="Delete Inbound Webhook"
         description={`Are you sure you want to delete "${deleteConfirm?.name}"? This will stop receiving webhooks at this endpoint.`}
         confirmLabel="Delete"

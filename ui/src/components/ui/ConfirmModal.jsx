@@ -8,7 +8,8 @@ export default function ConfirmModal({
   title,
   description,
   confirmLabel = 'Confirm',
-  danger = false
+  danger = false,
+  deleteConfirm = null
 }) {
   const [isLoading, setIsLoading] = useState(false);
 
@@ -24,11 +25,10 @@ export default function ConfirmModal({
 
   if (!open) return null;
 
-  const handleConfirm = async () => {
+const handleConfirm = async () => {
     setIsLoading(true);
     try {
       await onConfirm();
-      onClose();
     } finally {
       setIsLoading(false);
     }
