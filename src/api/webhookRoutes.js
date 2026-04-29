@@ -186,8 +186,7 @@ router.delete('/:workspaceSlug/webhooks/:id', authenticate, resolveWorkspace, as
       return res.status(404).json({ error: 'Endpoint not found' });
     }
     
-    endpoint.isActive = false;
-    await endpoint.save();
+    await WebhookEndpoint.deleteOne({ _id: req.params.id });
     
     res.json({ message: 'Endpoint deleted successfully' });
   } catch (error) {

@@ -202,10 +202,22 @@ export default function WebhookList() {
 
   const deleteMutation = useMutation({
     mutationFn: (id) => deleteWebhook(workspace.slug, id),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['webhooks']);
+    onSuccess: async (res, id) => {
+      queryClient.setQueryData(['webhooks', workspace?.slug], (old) => {
+        if (!old?.data?.endpoints) return old;
+        return {
+          ...old,
+          data: {
+            ...old.data,
+            endpoints: old.data.endpoints.filter(e => (e._id || e.id) !== id)
+          }
+        };
+      });
       setDeleteConfirm(null);
       toast.success('Endpoint deleted');
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.error || 'Failed to delete endpoint');
     }
   });
 
