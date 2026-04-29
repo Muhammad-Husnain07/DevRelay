@@ -1,18 +1,19 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Copy, Search, Zap, Globe, ArrowRight, Clock, Activity } from 'lucide-react';
+import { Plus, Copy, Search, Zap, Globe, ArrowRight, Clock, Activity, Trash2 } from 'lucide-react';
 import { useWorkspace } from '../../context/WorkspaceContext';
-import { listInbound, createInbound } from '../../api/resources/events';
+import { listInbound, createInbound, deleteInbound } from '../../api/resources/events';
 import { formatRelative, truncate } from '../../utils/formatters';
 import StatusBadge from '../../components/ui/StatusBadge';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import CopyButton from '../../components/ui/CopyButton';
 import SlideOver from '../../components/ui/SlideOver';
+import ConfirmModal from '../../components/ui/ConfirmModal';
 import toast from 'react-hot-toast';
 
-function InboundCard({ inbound, onClick }) {
+function InboundCard({ inbound, onClick, onDelete }) {
   const receiveUrl = `${window.location.origin}/receive/${inbound.slug}`;
   
   return (
@@ -46,16 +47,25 @@ function InboundCard({ inbound, onClick }) {
 
       <div className="flex items-center justify-between text-sm pt-4 border-t border-devrelay-border">
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5 text-devrelay-text-dim">
+          <div className="flex items-center gap-1.5 text-devrelay-text- dim">
             <Activity className="w-4 h-4" />
-            <span>{inbound.requestCount || 0} requests</span>
+            <span>{inbound. requestCount || 0} requests</span>
           </div>
-          <div className="flex items-center gap-1.5 text-devrelay-text-dim">
+          <div className="flex items-center gap-1.5 text-devrelay-text- dim">
             <Clock className="w-4 h-4" />
             <span>{inbound.lastRequestAt ? formatRelative(inbound.lastRequestAt) : 'never'}</span>
           </div>
         </div>
-        <ArrowRight className="w-4 h-4 text-devrelay-text-dim group-hover:text-devrelay-green group-hover:translate-x-1 transition-all" />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(inbound); }}
+            className="p-2 hover:bg- devrelay-red/10 rounded- lg transition- colors"
+            title="Delete"
+          >
+            <Trash2 className="w-4 h-4 text- devrelay-red" />
+          </button>
+          <ArrowRight className="w-4 h-4 text- devrelay-text- dim group- hover:text- devrelay-green group- hover:translate-x-1 transition- all" />
+        </div>
       </div>
     </div>
   );
@@ -215,10 +225,22 @@ export default function InboundList() {
     transformScript: ''
   });
 
-  const { data, isLoading } = useQuery({
+const { data, isLoading } = useQuery({
     queryKey: ['inbound', workspace?.slug],
-    queryFn: () => workspace?.slug ? listInbound(workspace.slug) : Promise.resolve({ data: [] }),
-    enabled: !!workspace?.slug
+    queryFn: () => workspace?.slug ? listInbound(workspace. slug) : Promise. resolve({ data: [] }),
+    enabled: !!workspace?. slug
+  });
+
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => deleteInbound(workspace. slug, id),
+    onSuccess: () => {
+      queryClient. invalidateQueries(['inbound']);
+      setDeleteConfirm(null);
+      toast. success('Inbound webhook deleted');
+    },
+    onError: (err) => toast. error(err.response?. data?. error || 'Failed to delete')
   });
 
   const createMutation = useMutation({
@@ -296,6 +318,7 @@ export default function InboundList() {
               key={inbound._id || inbound.id}
               inbound={inbound}
               onClick={() => navigate(`/inbound/${inbound.slug}`)}
+              onDelete={(inbound) => setDeleteConfirm(inbound)}
             />
           ))}
         </div>
@@ -330,6 +353,16 @@ export default function InboundList() {
           />
         )}
       </SlideOver>
+
+      <ConfirmModal
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => deleteMutation.mutate(deleteConfirm._id || deleteConfirm.id)}
+        title="Delete Inbound Webhook"
+        description={`Are you sure you want to delete "${deleteConfirm?.name}"? This will stop receiving events at this endpoint.`}
+        confirmLabel="Delete"
+        danger
+      />
     </div>
   );
 }

@@ -309,7 +309,7 @@ export default function WebhookDetail() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => deleteWebhook(workspace.slug, id),
+    mutationFn: (webhookId) => deleteWebhook(workspace.slug, webhookId || id),
     onSuccess: () => {
       queryClient.invalidateQueries(['webhooks']);
       toast.success('Webhook endpoint deleted');
@@ -501,10 +501,7 @@ export default function WebhookDetail() {
 <ConfirmModal
         open={!!deleteConfirm}
         onClose={() => setDeleteConfirm(null)}
-        onConfirm={() => {
-          const itemId = deleteConfirm?._id || deleteConfirm?.id || id;
-          if (itemId) deleteMutation.mutate(itemId);
-        }}
+        onConfirm={() => deleteMutation.mutate(id)}
         title="Delete Webhook Endpoint"
         description={`Are you sure you want to delete "${deleteConfirm?.name}"? This will stop all event deliveries to this endpoint.`}
         confirmLabel="Delete"
