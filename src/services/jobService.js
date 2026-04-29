@@ -104,6 +104,8 @@ async function retryJob(jobId) {
     throw new Error('Can only retry failed jobs');
   }
   
+  console.log('retryJob: Adding job to queue', job.name, job._id);
+  
   const bullOptions = {
     jobId: job._id.toString(),
     priority: job.priority,
@@ -119,6 +121,8 @@ async function retryJob(jobId) {
     maxAttempts: job.maxAttempts
   }, bullOptions);
   
+  console.log('retryJob: Bull job created', bullJob.id);
+  
   job.status = 'waiting';
   job.bullJobId = bullJob.id;
   job.attempts = 0;
@@ -126,6 +130,8 @@ async function retryJob(jobId) {
   job.stackTrace = undefined;
   job.failedAt = undefined;
   await job.save();
+  
+  console.log('retryJob: Job saved', job._id, job.status);
   
   return job;
 }

@@ -76,25 +76,26 @@ function CountdownTimer({ date }) {
   return <span className="text-devrelay-text font-mono">{countdown}</span>;
 }
 
-function CronPreview({ expression, timezone }) {
+function CronPreview({ expression, timezone, workspaceSlug }) {
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState(null);
   const debounced = useDebounce(expression, 500);
 
   useEffect(() => {
-    if (!debounced || debounced.length < 5) {
+    if (!debounced || debounced.length < 5 || !workspaceSlug) {
       setPreview(null);
       setError(null);
       return;
     }
 
-    validateCron(debounced)
+    validateCron(debounced, workspaceSlug)
       .then(data => {
         if (data.valid) {
           setPreview(data);
           setError(null);
         } else {
-          setError(data.error || 'Invalid cron expression');
+          const errorMsg = typeof data.error === 'string' ? data.error : (data.error?.message || 'Invalid cron expression');
+          setError(errorMsg);
           setPreview(null);
         }
       })
@@ -102,7 +103,7 @@ function CronPreview({ expression, timezone }) {
         setError('Failed to validate');
         setPreview(null);
       });
-  }, [debounced]);
+  }, [debounced, workspaceSlug]);
 
   if (!expression) return null;
 
@@ -237,7 +238,7 @@ function JsonEditor({ value, onChange, label, placeholder, templates }) {
   );
 }
 
-function CreateJobForm({ form, setForm, onSubmit, isPending, onClose }) {
+function CreateJobForm({ form, setForm, onSubmit, isPending, onClose, workspaceSlug }) {
   const [showPresets, setShowPresets] = useState(false);
   const [jsonError, setJsonError] = useState(null);
 
@@ -330,7 +331,7 @@ function CreateJobForm({ form, setForm, onSubmit, isPending, onClose }) {
               className="w-full bg-devrelay-surface border border-devrelay-border rounded-lg px-4 py-2.5 text-devrelay-text font-mono focus:outline-none focus:border-devrelay-green"
               placeholder="* * * * *"
             />
-            <CronPreview expression={form.cronExpression} timezone={form.timezone} />
+            <CronPreview expression={form.cronExpression} timezone={form.timezone} workspaceSlug={workspaceSlug} />
           </div>
 
           <div>
@@ -585,22 +586,26 @@ export default function SchedulerList() {
 
   const handleCreate = () => {
     if (!form.name || !form.cronExpression) return;
+    const action = form.actionType === 'http' 
+      ? { 
+          type: 'http-request', 
+          config: {
+            url: form.httpUrl, 
+            method: form.httpMethod || 'GET', 
+            headers: form.httpHeaders, 
+            body: form.httpBody,
+            timeout: (form.httpTimeout || 30) * 1000
+          }
+        }
+      : form.actionType === 'job'
+      ? { type: 'enqueue-job', config: { name: form.jobName, handler: 'log-message', payload: JSON.parse(form.jobPayload || '{}') } }
+      : { type: 'webhook-event', config: { eventType: form.eventType, payload: JSON.parse(form.eventPayload || '{}') } };
+    
     const data = {
       name: form.name,
       cronExpression: form.cronExpression,
       timezone: form.timezone,
-      action: form.actionType === 'http' 
-        ? { 
-            type: 'http-request', 
-            url: form.httpUrl, 
-            method: form.httpMethod, 
-            headers: form.httpHeaders, 
-            body: form.httpBody,
-            timeout: form.httpTimeout * 1000
-          }
-        : form.actionType === 'job'
-        ? { type: 'enqueue-job', name: form.jobName, payload: JSON.parse(form.jobPayload || '{}') }
-        : { type: 'webhook-event', eventType: form.eventType, payload: JSON.parse(form.eventPayload || '{}') }
+      action
     };
     createMutation.mutate(data);
   };
@@ -735,6 +740,7 @@ export default function SchedulerList() {
           onSubmit={handleCreate}
           isPending={createMutation.isPending}
           onClose={() => { setCreateOpen(false); resetForm(); }}
+          workspaceSlug={workspace?.slug}
         />
       </SlideOver>
 

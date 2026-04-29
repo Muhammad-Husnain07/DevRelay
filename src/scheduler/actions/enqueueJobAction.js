@@ -1,10 +1,11 @@
 const { enqueueJob } = require('../../services/jobService');
 
 async function execute(config, payload = {}, workspaceId) {
-  const { jobName, jobPayload, priority } = config;
+  const { name: jobName, handler, payload: jobPayload, priority } = config;
   
   const job = await enqueueJob(workspaceId, jobName, jobPayload || payload, {
-    priority: priority || 'normal'
+    priority: priority || 'normal',
+    handler: handler || 'log-message'
   });
   
   return {

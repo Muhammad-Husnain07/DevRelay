@@ -217,8 +217,7 @@ router.delete('/:workspaceSlug/inbound/:id', authenticate, resolveWorkspace, asy
       return res.status(404).json({ error: 'Inbound webhook not found' });
     }
     
-    inbound.isActive = false;
-    await inbound.save();
+    await InboundWebhook.deleteOne({ _id: inbound._id });
     
     res.json({ message: 'Inbound webhook deleted' });
   } catch (error) {

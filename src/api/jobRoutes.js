@@ -191,7 +191,11 @@ router.post('/:workspaceSlug/jobs/:id/retry', async (req, res) => {
       return res.status(404).json({ error: 'Job not found' });
     }
     
+    console.log('Retrying job:', job._id, 'status:', job.status);
+    
     const retried = await retryJob(job._id);
+    
+    console.log('Job retried successfully:', retried._id);
     
     res.json({ job: retried.getPublic() });
   } catch (error) {

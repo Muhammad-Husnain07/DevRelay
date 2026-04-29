@@ -234,13 +234,11 @@ const { data, isLoading } = useQuery({
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => deleteInbound(workspace. slug, id),
+    mutationFn: (id) => deleteInbound(workspace.slug, id),
     onSuccess: () => {
-      queryClient. invalidateQueries(['inbound']);
-      setDeleteConfirm(null);
-      toast. success('Inbound webhook deleted');
+      window.location.reload();
     },
-    onError: (err) => toast. error(err.response?. data?. error || 'Failed to delete')
+    onError: (err) => toast.error(err.response?.data?.error || 'Failed to delete')
   });
 
   const createMutation = useMutation({

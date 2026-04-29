@@ -52,12 +52,16 @@ export function truncateJson(obj, maxLen = 60) {
 }
 
 export function formatJson(obj) {
-  if (!obj) return '';
+  if (!obj || typeof obj !== 'object') return '';
   if (typeof obj === 'string') {
     try { return JSON.stringify(JSON.parse(obj), null, 2); } 
     catch { return obj; }
   }
-  return JSON.stringify(obj, null, 2);
+  try {
+    return JSON.stringify(obj, null, 2);
+  } catch {
+    return '';
+  }
 }
 
 export function formatCountdown(date) {
@@ -79,10 +83,14 @@ export function formatCountdown(date) {
   return `${seconds}s`;
 }
 
-export function validateCron(expression) {
-  return fetch('/api/v1/scheduler/validate-cron', {
+export function validateCron(expression, workspaceSlug) {
+  const token = localStorage.getItem('devrelay_token');
+  return fetch('/api/scheduler/validate-cron', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
     body: JSON.stringify({ expression })
   }).then(res => res.json());
 }

@@ -177,16 +177,20 @@ router.put('/:workspaceSlug/webhooks/:id', authenticate, resolveWorkspace, async
  */
 router.delete('/:workspaceSlug/webhooks/:id', authenticate, resolveWorkspace, async (req, res) => {
   try {
+    console.log('DELETE webhook request:', req.params.id);
     const endpoint = await WebhookEndpoint.findOne({
       _id: req.params.id,
       workspaceId: req.workspace._id
     });
     
     if (!endpoint) {
+      console.log('Endpoint not found');
       return res.status(404).json({ error: 'Endpoint not found' });
     }
     
+    console.log('Found endpoint, deleting:', endpoint.name);
     await WebhookEndpoint.deleteOne({ _id: req.params.id });
+    console.log('Deleted successfully');
     
     res.json({ message: 'Endpoint deleted successfully' });
   } catch (error) {

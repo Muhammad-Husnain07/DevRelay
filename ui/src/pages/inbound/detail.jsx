@@ -199,11 +199,13 @@ export default function InboundDetail() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
-  const { data: inbound, isLoading: loadingInbound } = useQuery({
+  const { data: inboundData, isLoading: loadingInbound } = useQuery({
     queryKey: ['inbound-detail', workspace?.slug, slug],
     queryFn: () => getInbound(workspace.slug, slug),
     enabled: !!workspace?.slug && !!slug
   });
+
+  const inbound = inboundData?.data?.inboundWebhook;
 
   const { data: requests, isLoading: loadingRequests, refetch } = useQuery({
     queryKey: ['inbound-requests', workspace?.slug, slug],
@@ -224,7 +226,7 @@ export default function InboundDetail() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data) => updateInbound(workspace.slug, inbound.data._id, data),
+    mutationFn: (data) => updateInbound(workspace.slug, inbound.data.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries(['inbound']);
       queryClient.invalidateQueries(['inbound-detail']);
@@ -235,17 +237,16 @@ export default function InboundDetail() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => deleteInbound(workspace.slug, inbound.data._id),
+    mutationFn: (id) => deleteInbound(workspace.slug, id),
     onSuccess: () => {
       queryClient.invalidateQueries(['inbound']);
-      toast.success('Inbound webhook deleted');
-      navigate('/inbound');
+      window.location.href = '/inbound';
     },
     onError: (err) => toast.error(err.response?.data?.error || 'Failed to delete')
   });
 
   const handleEdit = () => {
-    if (inbound?.data) {
+    if (inbound) {
       setForm({
         name: inbound.data.name || '',
         method: inbound.data.method || 'POST',
@@ -281,7 +282,7 @@ export default function InboundDetail() {
             <ArrowLeft className="w-5 h-5 text-devrelay-text-dim" />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-devrelay-text">{inbound?.data?.name || 'Inbound'}</h1>
+            <h1 className="text-2xl font-bold text-devrelay-text">{inbound?.name || 'Inbound'}</h1>
             <p className="text-devrelay-text-dim mt-1">Inspector and request history</p>
           </div>
         </div>
@@ -294,7 +295,7 @@ export default function InboundDetail() {
             Edit
           </button>
           <button
-            onClick={() => setDeleteConfirm(inbound?.data)}
+            onClick={() => setDeleteConfirm(inbound)}
             className="flex items-center gap-2 px-4 py-2.5 bg-devrelay-red/10 border border-devrelay-red/30 rounded-lg text-devrelay-red hover:bg-devrelay-red/20 transition-colors"
           >
             <Trash2 className="w-4 h-4" />
@@ -306,7 +307,7 @@ export default function InboundDetail() {
       <div className="bg-devrelay-surface border border-devrelay-border rounded-lg p-6 mb-6">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-sm font-medium text-devrelay-text-dim">Webhook URL</h2>
-          <StatusBadge status={inbound?.data?.isActive ? 'success' : 'inactive'} label={inbound?.data?.isActive ? 'Active' : 'Inactive'} />
+          <StatusBadge status={inbound?.isActive ? 'success' : 'inactive'} label={inbound?.isActive ? 'Active' : 'Inactive'} />
         </div>
         <div className="flex items-center gap-3">
           <code className="flex-1 bg-devrelay-bg px-4 py-3 rounded text-devrelay-green font-mono">{receiveUrl}</code>
@@ -318,19 +319,19 @@ export default function InboundDetail() {
         <div className="grid grid-cols-2 gap-6">
           <div>
             <h3 className="text-sm font-medium text-devrelay-text-dim mb-2">Signature Header</h3>
-            <p className="text-devrelay-text font-mono">{inbound?.data?.signatureHeader || 'X-DevRelay-Signature'}</p>
+            <p className="text-devrelay-text font-mono">{inbound?.signatureHeader || 'X-DevRelay-Signature'}</p>
           </div>
           <div>
             <h3 className="text-sm font-medium text-devrelay-text-dim mb-2">Signature Algorithm</h3>
-            <p className="text-devrelay-text">{inbound?.data?.signatureAlgorithm || 'HMAC-SHA256'}</p>
+            <p className="text-devrelay-text">{inbound?.signatureAlgorithm || 'HMAC-SHA256'}</p>
           </div>
           <div>
             <h3 className="text-sm font-medium text-devrelay-text-dim mb-2">Event Type Field</h3>
-            <p className="text-devrelay-text font-mono">{inbound?.data?.eventTypeField || 'type'}</p>
+            <p className="text-devrelay-text font-mono">{inbound?.eventTypeField || 'type'}</p>
           </div>
           <div>
             <h3 className="text-sm font-medium text-devrelay-text-dim mb-2">Default Event Type</h3>
-            <p className="text-devrelay-text font-mono">{inbound?.data?.defaultEventType || 'webhook.received'}</p>
+            <p className="text-devrelay-text font-mono">{inbound?.defaultEventType || 'webhook.received'}</p>
           </div>
         </div>
       </div>
@@ -370,11 +371,11 @@ export default function InboundDetail() {
         open={!!deleteConfirm}
         onClose={() => setDeleteConfirm(null)}
         onConfirm={() => {
-          const itemId = deleteConfirm?._id || inbound?.data?._id;
+          const itemId = deleteConfirm?.id || inbound?.id;
           if (itemId) deleteMutation.mutate(itemId);
         }}
         title="Delete Inbound Webhook"
-        description={`Are you sure you want to delete "${deleteConfirm?.name}"? This will stop receiving webhooks at this endpoint.`}
+        description={`Are you sure you want to delete "${deleteConfirm?.name || inbound?.name}"? This will stop receiving webhooks at this endpoint.`}
         confirmLabel="Delete"
         danger
       />

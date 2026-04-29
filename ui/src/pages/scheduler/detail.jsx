@@ -35,8 +35,10 @@ function StatBox({ label, value, color = 'text-devrelay-text', subLabel }) {
 function ActionTypeDisplay({ action }) {
   if (!action) return null;
 
+  const actionType = action?.type || 'unknown';
+  
   const getTypeInfo = () => {
-    switch (action.type) {
+    switch (actionType) {
       case 'http-request':
         return { icon: '🌐', label: 'HTTP Request', color: 'bg-devrelay-green/20 text-devrelay-green' };
       case 'enqueue-job':
@@ -44,13 +46,13 @@ function ActionTypeDisplay({ action }) {
       case 'webhook-event':
         return { icon: '📡', label: 'Webhook Event', color: 'bg-devrelay-purple/20 text-devrelay-purple' };
       default:
-        return { icon: '⚙️', label: action.type || 'Unknown', color: 'bg-devrelay-text-dim/20 text-devrelay-text-dim' };
+        return { icon: '⚙️', label: actionType || 'Unknown', color: 'bg-devrelay-text-dim/20 text-devrelay-text-dim' };
     }
   };
 
   const typeInfo = getTypeInfo();
-  const handler = action.handler || action.config?.handler || 'log-message';
-  const config = action.config || {};
+  const handler = action?.handler || action?.config?.handler || 'log-message';
+  const config = action?.config || {};
 
   return (
     <div className="space-y-4">
@@ -61,17 +63,17 @@ function ActionTypeDisplay({ action }) {
         </span>
       </div>
 
-      {action.type === 'http-request' && (
+      {actionType === 'http-request' && (
         <div className="space-y-3">
           <div className="flex justify-between py-2 border-b border-devrelay-border">
             <span className="text-devrelay-text-dim text-sm">Method</span>
-            <span className="text-devrelay-green font-mono">{action.method || 'GET'}</span>
+            <span className="text-devrelay-green font-mono">{action?.method || 'GET'}</span>
           </div>
           <div>
             <span className="text-devrelay-text-dim text-xs uppercase">URL</span>
-            <p className="text-devrelay-text font-mono text-sm mt-1 break-all">{action.url || '-'}</p>
+            <p className="text-devrelay-text font-mono text-sm mt-1 break-all">{action?.url || '-'}</p>
           </div>
-          {action.body && (
+          {action?.body && (
             <div>
               <span className="text-devrelay-text-dim text-xs uppercase">Body</span>
               <pre className="bg-devrelay-surface2 rounded p-3 text-xs text-devrelay-text font-mono mt-1 overflow-x-auto max-h-32">
@@ -82,7 +84,7 @@ function ActionTypeDisplay({ action }) {
         </div>
       )}
 
-      {action.type === 'enqueue-job' && (
+      {actionType === 'enqueue-job' && (
         <div className="space-y-3">
           <div className="flex justify-between py-2 border-b border-devrelay-border">
             <span className="text-devrelay-text-dim text-sm">Handler</span>
@@ -99,13 +101,13 @@ function ActionTypeDisplay({ action }) {
         </div>
       )}
 
-      {action.type === 'webhook-event' && (
+      {actionType === 'webhook-event' && (
         <div className="space-y-3">
           <div className="flex justify-between py-2 border-b border-devrelay-border">
             <span className="text-devrelay-text-dim text-sm">Event Type</span>
-            <span className="text-devrelay-purple font-mono">{action.eventType || '-'}</span>
+            <span className="text-devrelay-purple font-mono">{action?.eventType || '-'}</span>
           </div>
-          {action.payload && Object.keys(action.payload).length > 0 && (
+          {action?.payload && Object.keys(action.payload).length > 0 && (
             <div>
               <span className="text-devrelay-text-dim text-xs uppercase">Payload</span>
               <pre className="bg-devrelay-surface2 rounded p-3 text-xs text-devrelay-text font-mono mt-1 overflow-x-auto max-h-32">
@@ -120,7 +122,9 @@ function ActionTypeDisplay({ action }) {
 }
 
 function ExecutionHistory({ history, onViewAll }) {
-  if (!history || history.length === 0) {
+  const safeHistory = Array.isArray(history) ? history : [];
+  
+  if (safeHistory.length === 0) {
     return (
       <div className="text-center py-8">
         <Activity className="w-12 h-12 mx-auto text-devrelay-text-dim opacity-50 mb-3" />
@@ -132,31 +136,35 @@ function ExecutionHistory({ history, onViewAll }) {
 
   return (
     <div className="space-y-2">
-      {history.slice(0, 5).map((run, i) => (
-        <div key={i} className="flex items-center justify-between p-4 bg-devrelay-surface2 rounded-lg hover:bg-devrelay-border/30 transition-colors">
-          <div className="flex items-center gap-3">
-            <div className={`w-2.5 h-2.5 rounded-full ${
-              run.status === 'success' ? 'bg-devrelay-green' : 
-              run.status === 'failed' ? 'bg-devrelay-red' : 'bg-devrelay-yellow'
-            }`} />
-            <div>
-              <p className="text-devrelay-text text-sm font-medium capitalize">{run.status || 'unknown'}</p>
-              <p className="text-devrelay-text-dim text-xs">{formatDateTime(run.triggeredAt || run.timestamp)}</p>
+      {safeHistory.slice(0, 5).map((run, i) => {
+        if (!run) return null;
+        const runStatus = run?.status || 'unknown';
+        return (
+          <div key={i} className="flex items-center justify-between p-4 bg-devrelay-surface2 rounded-lg hover:bg-devrelay-border/30 transition-colors">
+            <div className="flex items-center gap-3">
+              <div className={`w-2.5 h-2.5 rounded-full ${
+                runStatus === 'success' ? 'bg-devrelay-green' : 
+                runStatus === 'failed' ? 'bg-devrelay-red' : 'bg-devrelay-yellow'
+              }`} />
+              <div>
+                <p className="text-devrelay-text text-sm font-medium capitalize">{runStatus}</p>
+                <p className="text-devrelay-text-dim text-xs">{formatDateTime(run?.triggeredAt || run?.timestamp)}</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-devrelay-text-dim text-sm font-mono">
+                {run?.duration ? formatDuration(run.duration) : '-'}
+              </p>
+              {run?.error && (
+                <p className="text-devrelay-red text-xs mt-1 max-w-xs truncate">{run.error}</p>
+              )}
             </div>
           </div>
-          <div className="text-right">
-            <p className="text-devrelay-text-dim text-sm font-mono">
-              {run.duration ? formatDuration(run.duration) : '-'}
-            </p>
-            {run.error && (
-              <p className="text-devrelay-red text-xs mt-1 max-w-xs truncate">{run.error}</p>
-            )}
-          </div>
-        </div>
-      ))}
-      {history.length > 5 && (
+        );
+      })}
+      {safeHistory.length > 5 && (
         <button onClick={onViewAll} className="w-full text-center text-devrelay-green text-sm py-2 hover:underline">
-          View all {history.length} executions →
+          View all {safeHistory.length} executions →
         </button>
       )}
     </div>

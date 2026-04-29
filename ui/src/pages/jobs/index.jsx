@@ -305,10 +305,12 @@ export default function JobList() {
   });
 
   const handleCreate = () => {
+    const priorityMap = { '-1': 'low', '0': 'normal', '1': 'high', '2': 'critical' };
     createMutation.mutate({
       name: form.name,
+      handler: form.name,
       payload: JSON.parse(form.payload),
-      priority: form.priority,
+      priority: priorityMap[String(form.priority)] || 'normal',
       delay: form.delay * 60000
     });
   };
@@ -432,49 +434,49 @@ export default function JobList() {
           action={status === 'all' ? <button onClick={() => setCreateOpen(true)} className="mt-4 px-4 py-2 bg-devrelay-green text-devrelay-bg rounded-lg hover:bg-devrelay-green-dim">Enqueue Job</button> : undefined}
         />
       ) : (
-        <div className="bg-devrelay-surface border border-devrelay-border rounded-xl overflow-hidden">
-          <table className="w-full">
+        <div className="bg-devrelay-surface border border-devrelay-border rounded-xl overflow-x-auto">
+          <table className="w-full min-w-[900px]">
             <thead>
               <tr className="border-b border-devrelay-border bg-devrelay-surface2">
-                <th className="text-left text-xs font-semibold text-devrelay-text-dim uppercase tracking-wide px-6 py-4">Job</th>
-                <th className="text-left text-xs font-semibold text-devrelay-text-dim uppercase tracking-wide px-6 py-4">Payload</th>
-                <th className="text-left text-xs font-semibold text-devrelay-text-dim uppercase tracking-wide px-6 py-4">Priority</th>
-                <th className="text-left text-xs font-semibold text-devrelay-text-dim uppercase tracking-wide px-6 py-4">Status</th>
-                <th className="text-left text-xs font-semibold text-devrelay-text-dim uppercase tracking-wide px-6 py-4">Created</th>
-                <th className="text-left text-xs font-semibold text-devrelay-text-dim uppercase tracking-wide px-6 py-4">Duration</th>
-                <th className="text-right text-xs font-semibold text-devrelay-text-dim uppercase tracking-wide px-6 py-4">Actions</th>
+                <th className="text-left text-xs font-semibold text-devrelay-text-dim uppercase tracking-wide px-4 py-3">Job</th>
+                <th className="text-left text-xs font-semibold text-devrelay-text-dim uppercase tracking-wide px-4 py-3">Payload</th>
+                <th className="text-left text-xs font-semibold text-devrelay-text-dim uppercase tracking-wide px-4 py-3">Priority</th>
+                <th className="text-left text-xs font-semibold text-devrelay-text-dim uppercase tracking-wide px-4 py-3">Status</th>
+                <th className="text-left text-xs font-semibold text-devrelay-text-dim uppercase tracking-wide px-4 py-3">Created</th>
+                <th className="text-left text-xs font-semibold text-devrelay-text-dim uppercase tracking-wide px-4 py-3">Duration</th>
+                <th className="text-right text-xs font-semibold text-devrelay-text-dim uppercase tracking-wide px-4 py-3 w-24">Actions</th>
               </tr>
             </thead>
             <tbody>
               {jobs.map(job => (
                 <tr key={job._id || job.id} className="border-b border-devrelay-border hover:bg-devrelay-surface2 transition-colors">
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <Link to={`/jobs/${job._id || job.id}`} className="text-devrelay-text font-medium hover:text-devrelay-green transition-colors">
                       {job.name}
                     </Link>
                     <p className="text-xs text-devrelay-text-dim font-mono mt-0.5">{job.id || job._id}</p>
                   </td>
-                  <td className="px-6 py-4 text-devrelay-text-dim font-mono text-sm max-w-xs">
+                  <td className="px-4 py-3 text-devrelay-text-dim font-mono text-sm max-w-xs">
                     <span className="block truncate">{truncateJson(job.payload, 50)}</span>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <span className={`px-2.5 py-1 text-xs rounded-lg font-medium ${priorityColors[job.priority < 0 ? 'low' : job.priority === 2 ? 'critical' : job.priority === 1 ? 'high' : 'normal']}`}>
                       {priorityLabels[job.priority < 0 ? 'low' : job.priority === 2 ? 'critical' : job.priority === 1 ? 'high' : 'normal']}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <StatusBadge status={job.status} label={job.status} />
                   </td>
-                  <td className="px-6 py-4 text-devrelay-text-dim text-sm">{formatRelative(job.createdAt)}</td>
-                  <td className="px-6 py-4 text-devrelay-text-dim text-sm">
+                  <td className="px-4 py-3 text-devrelay-text-dim text-sm">{formatRelative(job.createdAt)}</td>
+                  <td className="px-4 py-3 text-devrelay-text-dim text-sm">
                     {job.completedAt ? formatDuration(job.duration) : '—'}
                   </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-1">
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                    <div className="flex items-center justify-end gap-2">
                       {job.status === 'failed' && (
                         <button 
                           onClick={() => setRetryConfirmJob(job)}
-                          className="p-2 hover:bg-devrelay-border rounded-lg transition-colors" 
+                          className="p-2 bg-devrelay-amber/20 hover:bg-devrelay-amber/30 rounded-lg transition-colors" 
                           title="Retry"
                         >
                           <RotateCcw className="w-4 h-4 text-devrelay-amber" />
@@ -483,7 +485,7 @@ export default function JobList() {
                       {job.status !== 'completed' && job.status !== 'cancelled' && (
                         <button 
                           onClick={() => setDeleteConfirmJob(job)} 
-                          className="p-2 hover:bg-devrelay-border rounded-lg transition-colors" 
+                          className="p-2 bg-devrelay-red/20 hover:bg-devrelay-red/30 rounded-lg transition-colors" 
                           title="Cancel"
                         >
                           <Trash2 className="w-4 h-4 text-devrelay-red" />
