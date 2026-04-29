@@ -357,7 +357,7 @@ const { data, isLoading } = useQuery({
       <ConfirmModal
         open={!!deleteConfirm}
         onClose={() => setDeleteConfirm(null)}
-        onConfirm={() => deleteMutation.mutate(deleteConfirm._id || deleteConfirm.id)}
+        onConfirm={() => deleteMutation.mutate(deleteConfirm?._id || deleteConfirm?.id)}
         title="Delete Inbound Webhook"
         description={`Are you sure you want to delete "${deleteConfirm?.name}"? This will stop receiving events at this endpoint.`}
         confirmLabel="Delete"

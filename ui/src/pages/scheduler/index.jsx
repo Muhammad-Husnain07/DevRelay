@@ -741,7 +741,7 @@ export default function SchedulerList() {
       <ConfirmModal
         open={!!deleteConfirm}
         onClose={() => setDeleteConfirm(null)}
-        onConfirm={() => deleteMutation.mutate(deleteConfirm._id || deleteConfirm.id)}
+        onConfirm={() => deleteMutation.mutate(deleteConfirm?._id || deleteConfirm?.id)}
         title="Delete Scheduled Job"
         description={`Are you sure you want to delete "${deleteConfirm?.name}"? This action cannot be undone.`}
         confirmLabel="Delete"
