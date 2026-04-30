@@ -99,7 +99,7 @@ module.exports = {
 const jobHandlers = require('../services/jobHandlers');
 
 async function startWorker() {
-  const worker = new Worker('generic-job', async (job) => {
+  const worker = new Worker('job', async (job) => {
     const handler = jobHandlers[job.name];
     
     if (!handler) {
@@ -214,7 +214,7 @@ curl -X DELETE http://localhost:3000/api/workspaces/my-workspace/jobs/{id} \
 ### Concurrency
 
 ```javascript
-const worker = new Worker('generic-job', handler, {
+const worker = new Worker('job', handler, {
   concurrency: 10,        // 10 concurrent jobs
   limiter: {
     max: 100,            // 100 jobs
@@ -226,7 +226,7 @@ const worker = new Worker('generic-job', handler, {
 ### Rate Limiting
 
 ```javascript
-const queue = new Queue('generic-job', {
+const queue = new Queue('job', {
   limiter: {
     max: 100,
     duration: 60000  // 100 jobs per minute

@@ -13,13 +13,20 @@ DevRelay is a self-hosted backend infrastructure platform providing webhook deli
 - `WebhookEvent` model - individual events
 - `WebhookDelivery` model - delivery attempts
 - `webhookDeliveryWorker` - BullMQ worker
+- `WebhookDelivery` model - tracks delivery attempts with retry logic
 
 **Flow:**
 ```
 Client → POST /events → WebhookEvent.create()
   → Worker picks up → HMAC signature → HTTP POST to endpoint
-  → Track response → Update delivery status
+  → Track response → Update delivery status → Retry on failure (max 5)
 ```
+
+**Queues:**
+- `webhook` - Webhook delivery jobs
+- `email` - Email sending jobs
+- `scheduler` - Cron job executions
+- `job` - Generic background jobs
 
 **Signature Verification:**
 ```javascript
@@ -35,18 +42,25 @@ const signature = crypto
 
 **Components:**
 - BullMQ with 4 queues
-- `Job` model
+- `Job` model - job definitions
+- `Job` collection - job instances
 - Generic job handlers
 
 **Queue Configuration:**
 ```javascript
 const queues = {
-  webhookDelivery: new Queue('webhook-delivery', { attempts: 5 }),
+  webhook: new Queue('webhook', { attempts: 5 }),
   email: new Queue('email', { attempts: 3 }),
   scheduler: new Queue('scheduler', { attempts: 3 }),
-  genericJob: new Queue('generic-job', { attempts: 3 })
+  job: new Queue('job', { attempts: 3 })
 };
 ```
+
+**Priority Support:**
+- `-1` = Low (batch processing)
+- `0` = Normal (default)
+- `1` = High (user-initiated)
+- `2` = Critical (payment, auth)
 
 **Priority Support:**
 - `-1` = Low (batch processing)
@@ -57,15 +71,22 @@ const queues = {
 ### 3. API Gateway
 
 **Components:**
-- `GatewayRoute` model
-- `GatewayLog` model
-- Proxy middleware
-- Rate limiting plugins
+- `GatewayRoute` model - stores route config (path, method, upstream URL)
+- `GatewayLog` model - request/response logs
+- `Consumer` model - API consumers with quota management
+- Proxy middleware - forwards requests to upstream
+- Rate limiting plugins - Token Bucket algorithm
 
 **Middleware Chain:**
 ```
-Request → Auth → Rate Limit → Proxy → Upstream → Response
+Request → Auth (none/consumer-key) → Rate Limit → Proxy → Upstream → Response
 ```
+
+**Consumer API Key Authentication:**
+- Keys stored as SHA256 hash for security
+- Header: `X-API-Key: key-xxxxx`
+- Per-consumer quota tracking
+- Real-time quota usage monitoring
 
 **Token Bucket Algorithm:**
 ```javascript
@@ -89,12 +110,22 @@ return {0, new_tokens, math.ceil((1 - new_tokens) / fill_rate * 60)}
 `;
 ```
 
-### 4. Real-time Monitoring
+### 4. Dashboard & Real-time Monitoring
 
 **Components:**
-- Socket.io server
+- Socket.io server for live updates
 - `metricsService` - Redis-backed counters
-- `metricsAggregator` - periodic aggregation
+- `metricsAggregator` - periodic aggregation to MongoDB
+- Dashboard UI with live stats
+
+**Metrics Tracked:**
+- Deliveries Today
+- Jobs Processed
+- Cron Jobs Active
+- Gateway Requests
+- Queue Depth (live)
+- Success Rate
+- Average Response Time
 
 **Socket Events:**
 ```javascript

@@ -123,6 +123,344 @@ open http://localhost:3000
 
 **API Docs**: http://localhost:3000/api/docs/
 
+---
+
+## UI Features Guide
+
+This section documents each screen in the DevRelay UI and how to use its features.
+
+### Navigation Sidebar
+
+The sidebar provides access to all main features:
+- **Dashboard** - Overview and statistics
+- **Webhooks** - Outbound webhook management
+- **Inbound** - Receive incoming webhooks
+- **Jobs** - Background job queue
+- **Scheduler** - Cron job scheduling
+- **Gateway** - API gateway configuration
+- **Alerts** - Alert rules and notifications
+- **Events** - Event log viewer
+- **Settings** - Workspace and user settings
+
+---
+
+### 1. Dashboard
+
+**Purpose:** Real-time overview of your workspace activity and health.
+
+**Features:**
+- **Stat Cards** - Shows key metrics:
+  - Deliveries Today - Number of webhooks delivered
+  - Jobs Processed - Background jobs completed
+  - Cron Jobs Active - Number of scheduled jobs running
+  - Gateway Requests - API gateway requests count
+- **Queue Depth Chart** - Live visualization of pending jobs in each queue
+- **Live Activity Feed** - Real-time updates of deliveries and jobs
+- **System Status** - Shows API, Database, Job Queue, WebSocket status
+- **Firing Alerts** - Displays currently triggered alert rules
+
+**How to Use:**
+1. Open Dashboard to see workspace overview
+2. Stat cards show today's metrics (refreshed every 30 seconds)
+3. Queue depth chart updates every 10 seconds
+4. Live activity shows real-time webhook delivery and job status
+
+---
+
+### 2. Webhooks
+
+**Purpose:** Manage outbound webhook endpoints for sending data to external services.
+
+**Features:**
+- **Create Webhook** - Register new webhook endpoints with:
+  - Name - Friendly identifier
+  - URL - Destination endpoint
+  - Secret - For HMAC signature verification
+  - Events - Filter which events trigger this endpoint
+- **Delivery Tracking** - View all delivery attempts with:
+  - Status (success/failed/pending)
+  - HTTP status code
+  - Duration
+  - Response body
+- **Test Webhook** - Send a test event to verify endpoint
+- **Rotate Secret** - Generate new webhook secret
+
+**How to Use:**
+1. Navigate to **Webhooks** page
+2. Click **Create Webhook** button
+3. Enter endpoint details (name, URL, secret)
+4. Optionally filter events or leave as `*` for all events
+5. Click **Create** - endpoint is ready
+6. Click **Test** to send a test payload
+7. View delivery history in the endpoint detail page
+
+**Dispatching Events:**
+```javascript
+// Send events to your webhook endpoints
+POST /api/workspaces/{slug}/events
+{
+  "event": "order.created",
+  "payload": { "orderId": "123", "amount": 99.99 }
+}
+```
+
+---
+
+### 3. Inbound
+
+**Purpose:** Receive webhooks from external services (GitHub, Stripe, etc.)
+
+**Features:**
+- **Create Inbound Endpoint** - Generate a unique URL to receive webhooks
+- **Request Logging** - View all incoming requests with headers and body
+- **Replay Requests** - Replay a previous request to test your handlers
+- **Verification** - Verify incoming webhook signatures
+
+**How to Use:**
+1. Navigate to **Inbound** page
+2. Click **Create Inbound** to generate a receiver URL
+3. Configure your external service (GitHub, Stripe, etc.) to send webhooks to your unique URL
+4. View incoming requests in the **Requests** tab
+5. Click on any request to see headers, body, and response
+6. Use **Replay** to test request handling
+
+**Receiving Webhooks:**
+```
+URL Format: https://your-server/receive/{workspace-slug}/{endpoint-id}
+Example: https://devrelay.example.com/receive/my-workspace/inbound_123
+```
+
+---
+
+### 4. Jobs
+
+**Purpose:** Manage background job processing for async tasks.
+
+**Features:**
+- **Job Queue** - View all jobs (waiting, active, completed, failed)
+- **Create Job** - Enqueue new jobs with:
+  - Name - Job type identifier
+  - Payload - Job data (JSON)
+  - Priority - -1 (low), 0 (normal), 1 (high), 2 (critical)
+  - Delay - Delay execution by milliseconds
+- **Job Details** - View job status, progress, result, and error messages
+- **Retry Failed** - Manually retry failed jobs
+- **Cancel** - Delete pending jobs
+
+**Priority Levels:**
+| Priority | Value | Use Case |
+|----------|-------|----------|
+| Low | -1 | Batch processing, cleanup |
+| Normal | 0 | Default jobs |
+| High | 1 | User-initiated actions |
+| Critical | 2 | Payments, authentication |
+
+**How to Use:**
+1. Navigate to **Jobs** page
+2. Click **Create Job** to add a new job
+3. Enter job name and payload (JSON)
+4. Optionally set priority or delay
+5. Click **Create** - job is added to queue
+6. Monitor job status in the list view
+7. Click on a job to see details, progress, and results
+8. For failed jobs, click **Retry** to re-run
+
+---
+
+### 5. Scheduler
+
+**Purpose:** Automate tasks using cron expressions for recurring jobs.
+
+**Features:**
+- **Cron Expressions** - Support for 5-field and 6-field (with seconds) expressions
+- **Action Types:**
+  - HTTP Request - Call external APIs
+  - Enqueue Job - Add jobs to the queue
+  - Webhook Event - Trigger webhook dispatch
+- **Timezone Support** - Run jobs in your local timezone
+- **History** - View execution history with success/failure status
+- **Run Now** - Manually trigger a scheduled job
+- **Toggle** - Enable/disable scheduled jobs without deleting
+- **Missed Job Detection** - Automatically runs missed jobs on server restart
+
+**Common Cron Expressions:**
+| Expression | Description |
+|------------|-------------|
+| `* * * * *` | Every minute |
+| `*/5 * * * *` | Every 5 minutes |
+| `0 * * * *` | Every hour |
+| `0 9 * * *` | Every day at 9 AM |
+| `0 0 * * *` | Every day at midnight |
+| `0 0 * * 1` | Every Monday at midnight |
+
+**How to Use:**
+1. Navigate to **Scheduler** page
+2. Click **Create Scheduled Job**
+3. Enter job details:
+   - Name - Descriptive identifier
+   - Cron Expression - Use preset or enter custom
+   - Timezone - Select your timezone
+   - Action Type - Choose what happens when job runs
+4. Configure action (URL for HTTP, handler for jobs, etc.)
+5. Click **Create** - job is scheduled
+6. View execution history in the job detail page
+7. Use **Run Now** to manually trigger
+8. Use **Toggle** to pause/resume without deleting
+
+---
+
+### 6. Gateway (API Gateway)
+
+**Purpose:** Create API routes that proxy requests to upstream services with rate limiting and authentication.
+
+**Features:**
+- **Route Management** - Create API routes with:
+  - Path - URL path (e.g., `/api/users`)
+  - Method - HTTP method (GET, POST, PUT, DELETE, etc.)
+  - Upstream URL - Target service URL
+  - Auth Type - None or Consumer API Key
+- **Consumer Management** - Manage API consumers with:
+  - API Key - Unique key for authentication
+  - Secret - For key verification (stored as SHA256 hash)
+  - Quota - Request limit per time period
+  - Usage - Real-time quota tracking
+- **Request Logging** - View all gateway requests with:
+  - Status code (filter by 2xx, 4xx, 5xx)
+  - Route path (filter by route)
+  - Duration and response size
+- **Rate Limiting** - Token Bucket algorithm per consumer
+
+**Auth Types:**
+| Type | Description |
+|------|-------------|
+| None | No authentication required |
+| Consumer API Key | Requires `X-API-Key` header |
+
+**How to Use:**
+1. Navigate to **Gateway** page
+2. **Create Route:**
+   - Click **Add Route**
+   - Enter path, method, upstream URL
+   - Select auth type
+   - Click **Create**
+3. **Add Consumer:**
+   - Go to **Consumers** tab
+   - Click **Add Consumer**
+   - Enter name and quota
+   - Copy the generated API key (shown once)
+4. **Test Route:**
+   ```bash
+   curl -H "X-API-Key: key-xxxxx" \
+     https://your-gateway-url/gw/your-route-path
+   ```
+5. **View Logs:**
+   - Go to **Logs** tab
+   - Filter by route path or status code
+   - View request details, duration, response size
+
+---
+
+### 7. Alerts
+
+**Purpose:** Monitor system metrics and get notified when thresholds are exceeded.
+
+**Features:**
+- **Alert Rules** - Create rules with:
+  - Name - Descriptive identifier
+  - Metric Type - Webhook failure rate, Job failure rate, Queue depth
+  - Condition - Threshold value (e.g., > 25%)
+  - Evaluation Window - Time period to evaluate
+- **Alert History** - View triggered alerts with:
+  - Status (firing/resolved)
+  - Timestamp
+  - Actual values at trigger time
+- **Notification Channels:**
+  - Email - Send alerts to workspace members
+  - Webhook - Send alerts to configured URL
+
+**Metric Types:**
+| Type | Description |
+|------|-------------|
+| Webhook Failure Rate | % of failed webhook deliveries |
+| Job Failure Rate | % of failed background jobs |
+| Queue Depth | Number of waiting jobs in queue |
+
+**How to Use:**
+1. Navigate to **Alerts** page
+2. **Create Alert Rule:**
+   - Click **Create Alert Rule**
+   - Enter name and description
+   - Select metric type
+   - Set threshold (e.g., 25%)
+   - Choose evaluation window
+   - Enable/disable notifications
+3. **View Alerts:**
+   - Active alerts show in Dashboard
+   - Full history in Alerts page
+4. **Manage Alerts:**
+   - Toggle rules on/off
+   - Edit threshold and conditions
+   - Delete rules
+
+---
+
+### 8. Events
+
+**Purpose:** View and debug event dispatch history.
+
+**Features:**
+- **Event Log** - View all dispatched events with:
+  - Event type
+  - Payload
+  - Delivery status
+  - Timestamp
+- **Event Details** - View event payload and all delivery attempts
+- **Filter** - Search events by type or status
+
+**How to Use:**
+1. Navigate to **Events** page
+2. View list of all dispatched events
+3. Click on an event to see:
+   - Full payload
+   - Which endpoints received it
+   - Delivery status for each endpoint
+4. Use search/filter to find specific events
+
+---
+
+### 9. Settings
+
+**Purpose:** Configure workspace and user settings.
+
+**Tabs:**
+- **General** - Workspace name, description
+- **Members** - Manage team members (owner, admin, member roles)
+- **API Keys** - Create and manage workspace API keys
+- **Notifications** - Configure email preferences
+- **Danger Zone** - Delete workspace (requires confirmation)
+
+**Member Roles:**
+| Role | Permissions |
+|------|-------------|
+| Owner | Full access, can delete workspace |
+| Admin | Manage all resources, members |
+| Member | View resources, create/update own |
+
+**How to Use:**
+1. Navigate to **Settings** page
+2. **General:** Edit workspace name and description
+3. **Members:**
+   - Invite members by email
+   - Change member roles
+   - Remove members
+4. **API Keys:**
+   - Create new API key
+   - Copy key (shown once)
+   - Revoke keys when no longer needed
+5. **Danger Zone:** Only for workspace deletion
+
+---
+
 ## Architecture Notes
 
 ### Webhook Delivery
@@ -132,7 +470,7 @@ open http://localhost:3000
 - Retry with exponential backoff (max 5 attempts)
 
 ### Job Queue
-- BullMQ with 4 queues: `webhook-delivery`, `email`, `scheduler`, `generic-job`
+- BullMQ with 4 queues: `webhook`, `email`, `scheduler`, `job`
 - Priority support via `priority` field (-1 low, 0 normal, 1 high, 2 critical)
 - Delayed jobs via `scheduledFor` timestamp
 
