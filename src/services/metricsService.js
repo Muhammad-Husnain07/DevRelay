@@ -17,7 +17,7 @@ const getQueueDepth = async (queueName) => {
 };
 
 const getLiveStats = async (workspaceId) => {
-  const queues = ['webhook', 'job', 'email', 'scheduler'];
+  const queues = ['webhookDelivery', 'genericJob', 'email', 'scheduler'];
   const queueDepths = {};
 
   for (const name of queues) {
@@ -31,10 +31,10 @@ const getLiveStats = async (workspaceId) => {
 
   return {
     metrics: {
-      webhookDelivery: (queueDepths.webhook?.waiting || 0) + (queueDepths.webhook?.active || 0),
+      webhookDelivery: (queueDepths.webhookDelivery?.waiting || 0) + (queueDepths.webhookDelivery?.active || 0),
       email: (queueDepths.email?.waiting || 0) + (queueDepths.email?.active || 0),
-      genericJob: (queueDepths.job?.waiting || 0) + (queueDepths.job?.active || 0),
-      deadLetter: (queueDepths.scheduler?.failed || 0) + (queueDepths.job?.failed || 0)
+      genericJob: (queueDepths.genericJob?.waiting || 0) + (queueDepths.genericJob?.active || 0),
+      deadLetter: (queueDepths.scheduler?.failed || 0) + (queueDepths.genericJob?.failed || 0)
     },
     queueDepths,
     deliveriesTotal: parseInt(deliveryCount || '0'),
