@@ -41,9 +41,15 @@ const severityOptions = [
 ];
 
 function RuleCard({ rule, onEdit, onDelete, onTest }) {
-  const metric = metricOptions.find(m => m.value === rule.conditionType) || { label: rule.conditionType, suffix: '' };
-  const conditionStr = `${rule.conditionConfig?.operator || '>'} ${rule.conditionConfig?.threshold || 0}${metric.suffix}`;
-  const windowMinutes = (rule.conditionConfig?.window || 300) / 60;
+  const condition = rule.condition || {};
+  const conditionConfig = rule.conditionConfig || {
+    operator: condition.operator ? { gt: '>', lt: '<', gte: '>=', lte: '<=', eq: '=' }[condition.operator] || '>' : '>',
+    threshold: condition.threshold || 0,
+    window: (condition.windowMinutes || 5) * 60
+  };
+  const metric = metricOptions.find(m => m.value === (rule.conditionType || condition.metric)) || { label: rule.conditionType || condition.metric, suffix: '' };
+  const conditionStr = `${conditionConfig.operator} ${conditionConfig.threshold}${metric.suffix}`;
+  const windowMinutes = conditionConfig.window / 60;
 
   return (
     <div className="bg-devrelay-surface border border-devrelay-border rounded-xl p-5 hover:border-devrelay-green/50 transition-all group">
@@ -96,9 +102,9 @@ function RuleCard({ rule, onEdit, onDelete, onTest }) {
         <div className="flex items-center gap-2">
           <span className="text-devrelay-text-dim text-sm">Status:</span>
           <div className="flex items-center gap-1.5">
-            <span className={`w-2 h-2 rounded-full ${rule.isEnabled ? 'bg-devrelay-green' : 'bg-devrelay-border'}`} />
-            <span className={`text-sm font-medium ${rule.isEnabled ? 'text-devrelay-green' : 'text-devrelay-text-dim'}`}>
-              {rule.isEnabled ? 'Active' : 'Disabled'}
+            <span className={`w-2 h-2 rounded-full ${(rule.isActive || rule.isEnabled) ? 'bg-devrelay-green' : 'bg-devrelay-border'}`} />
+            <span className={`text-sm font-medium ${(rule.isActive || rule.isEnabled) ? 'text-devrelay-green' : 'text-devrelay-text-dim'}`}>
+              {(rule.isActive || rule.isEnabled) ? 'Active' : 'Disabled'}
             </span>
           </div>
         </div>
@@ -402,8 +408,41 @@ export default function Alerts() {
     queryClient.invalidateQueries(['alerts']);
   });
 
+  const operatorMap = { '>': 'gt', '<': 'lt', '>=': 'gte', '<=': 'lte', '=': 'eq' };
+  const reverseOperatorMap = { 'gt': '>', 'lt': '<', 'gte': '>=', 'lte': '<=', 'eq': '=' };
+  
+  const transformToBackend = (form) => ({
+    name: form.name,
+    description: form.description || '',
+    isActive: form.isEnabled !== false,
+    condition: {
+      metric: form.conditionType,
+      operator: operatorMap[form.conditionConfig?.operator] || 'gt',
+      threshold: form.conditionConfig?.threshold || 0,
+      windowMinutes: Math.floor((form.conditionConfig?.window || 300) / 60)
+    },
+    severity: form.severity || 'warning',
+    cooldownMinutes: form.cooldown || 60,
+    channels: form.actions || []
+  });
+
+  const transformFromBackend = (rule) => ({
+    name: rule.name || '',
+    description: rule.description || '',
+    isEnabled: rule.isActive !== false,
+    conditionType: rule.condition?.metric || rule.conditionType || 'webhook_failure_rate',
+    conditionConfig: {
+      operator: reverseOperatorMap[rule.condition?.operator] || rule.conditionConfig?.operator || '>',
+      threshold: rule.condition?.threshold ?? rule.conditionConfig?.threshold ?? 10,
+      window: (rule.condition?.windowMinutes ?? rule.conditionConfig?.window ?? 5) * 60
+    },
+    severity: rule.severity || 'warning',
+    cooldown: rule.cooldownMinutes || 60,
+    actions: rule.channels || rule.actions || []
+  });
+
   const createMutation = useMutation({
-    mutationFn: (data) => createAlertRule(workspace.slug, data),
+    mutationFn: (data) => createAlertRule(workspace.slug, transformToBackend(data)),
     onSuccess: () => {
       queryClient.invalidateQueries(['alertRules']);
       setCreateOpen(false);
@@ -414,7 +453,7 @@ export default function Alerts() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data) => updateAlertRule(workspace.slug, editRule._id || editRule.id, data),
+    mutationFn: (data) => updateAlertRule(workspace.slug, editRule._id || editRule.id, transformToBackend(data)),
     onSuccess: () => {
       queryClient.invalidateQueries(['alertRules']);
       setEditRule(null);
@@ -538,7 +577,7 @@ export default function Alerts() {
             <RuleCard
               key={rule._id || rule.id}
               rule={rule}
-              onEdit={(r) => { setEditRule(r); setForm(r); setCreateOpen(true); }}
+              onEdit={(r) => { setEditRule(r); setForm(transformFromBackend(r)); setCreateOpen(true); }}
               onDelete={(r) => setDeleteRuleConfirm(r)}
               onTest={(r) => testMutation.mutate(r._id || r.id)}
             />

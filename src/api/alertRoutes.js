@@ -64,13 +64,29 @@ router.post('/:workspaceSlug/alerts/rules/:id/evaluate', asyncHandler(async (req
   res.json({ result });
 }));
 
+const evaluators = {
+  webhook_failure_rate: require('../services/alertEvaluators/webhookFailureRate'),
+  job_failure_rate: require('../services/alertEvaluators/jobFailureRate'),
+  queue_depth: require('../services/alertEvaluators/queueDepth'),
+  endpoint_consecutive_failures: require('../services/alertEvaluators/endpointConsecutiveFailures'),
+  cron_missed: require('../services/alertEvaluators/cronMissed')
+};
+
 router.post('/:workspaceSlug/alerts/rules/:id/test', asyncHandler(async (req, res) => {
-  const { getMetricValue } = require('../services/alertService');
   const workspace = res.locals.workspace;
   const rule = await AlertRule.findById(req.params.id);
   if (!rule) return res.status(404).json({ error: 'Rule not found' });
-  const currentValue = await getMetricValue(rule.conditionType, workspace._id);
-  res.json({ currentValue, threshold: rule.conditionConfig?.threshold });
+  
+  const metric = rule.condition?.metric;
+  const evaluator = evaluators[metric];
+  
+  if (!evaluator) {
+    return res.status(400).json({ error: `Unknown metric: ${metric}` });
+  }
+  
+  const windowMinutes = rule.condition?.windowMinutes || 5;
+  const currentValue = await evaluator.evaluate(workspace._id, windowMinutes);
+  res.json({ currentValue, threshold: rule.condition?.threshold });
 }));
 
 router.post('/:workspaceSlug/alerts/evaluate', asyncHandler(async (req, res) => {
