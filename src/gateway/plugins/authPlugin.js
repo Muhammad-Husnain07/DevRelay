@@ -1,5 +1,5 @@
-const jwt = require('jsonwebtoken');
-const ApiKey = require('../../models/ApiKey');
+const crypto = require('crypto');
+const Consumer = require('../../models/Consumer');
 
 exports.authPlugin = async (req, res, route) => {
   if (!route.auth.required || route.auth.type === 'none') {
@@ -7,30 +7,29 @@ exports.authPlugin = async (req, res, route) => {
     return { allowed: true };
   }
 
-  const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    return { allowed: false, error: 'No authorization header' };
-  }
+  const apiKeyHeader = req.headers['x-api-key'];
 
-  if (route.auth.type === 'api-key') {
-    const apiKey = authHeader.replace(/^Bearer\s+/i, '');
-    const key = await ApiKey.findOne({ key: apiKey.substring(0, 8), isActive: true });
-    if (!key) return { allowed: false, error: 'Invalid API key' };
-    req.consumerId = key.userId.toString();
-    req.apiKeyId = key._id;
+  if (route.auth.type === 'consumer-key') {
+    if (!apiKeyHeader) {
+      return { allowed: false, error: 'X-API-Key header required' };
+    }
+
+    const inputKeyHash = crypto.createHash('sha256').update(apiKeyHeader).digest('hex');
+    const consumer = await Consumer.findOne({ 
+      keyHash: inputKeyHash, 
+      isActive: true,
+      workspaceId: route.workspaceId
+    });
+
+    if (!consumer) {
+      return { allowed: false, error: 'Invalid API key' };
+    }
+
+    req.consumerId = consumer.key;
+    req.consumer = consumer;
+
     return { allowed: true };
   }
 
-  if (route.auth.type === 'jwt') {
-    try {
-      const token = authHeader.replace(/^Bearer\s+/i, '');
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'devsecret');
-      req.consumerId = decoded.userId || decoded.sub;
-      return { allowed: true };
-    } catch (err) {
-      return { allowed: false, error: 'Invalid or expired token' };
-    }
-  }
-
-  return { allowed: true };
+  return { allowed: false, error: 'Invalid auth type' };
 };

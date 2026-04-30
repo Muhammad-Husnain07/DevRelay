@@ -41,18 +41,20 @@ const checkRateLimit = async (consumerId, routeId, workspaceId) => {
 };
 
 const incrementUsage = async (consumerId, workspaceId) => {
-  const key = `quota:${workspaceId}:${consumerId}`;
+  const workspaceIdStr = workspaceId.toString();
+  const key = `quota:${workspaceIdStr}:${consumerId}`;
   const count = await redisClient.incr(key);
   await redisClient.expire(key, 2592000);
 
-  if (count % 100 === 0) {
-    setImmediate(async () => {
-      try {
-        await Consumer.updateOne({ key: consumerId }, { $inc: { 'quotas.currentMonthCount': 100 } });
-      } catch (err) {
-        console.error('[RateLimit] Quota sync error:', err.message);
-      }
-    });
+  // Always increment DB counter
+  try {
+    const consumer = await Consumer.findOne({ key: consumerId });
+    if (consumer) {
+      consumer.quotas.currentMonthCount = (consumer.quotas.currentMonthCount || 0) + 1;
+      await consumer.save();
+    }
+  } catch (err) {
+    console.error('[RateLimit] Quota sync error:', err.message);
   }
 };
 

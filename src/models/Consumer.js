@@ -1,9 +1,12 @@
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 
 const consumerSchema = new mongoose.Schema({
   workspaceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Workspace', required: true },
   name: { type: String, required: true },
   key: { type: String, required: true },
+  keyHash: { type: String, required: true },
+  secretHash: { type: String, default: '' },
   description: { type: String, default: '' },
   isActive: { type: Boolean, default: true },
   rateLimits: {
@@ -24,7 +27,38 @@ function getNextMonthReset() {
   return new Date(now.getFullYear(), now.getMonth() + 1, 1);
 }
 
-consumerSchema.index({ workspaceId: 1, key: 1 }, { unique: true });
+consumerSchema.methods.generateKeyPair = function() {
+  this.key = 'dk_' + crypto.randomBytes(16).toString('hex');
+  this.keyHash = crypto.createHash('sha256').update(this.key).digest('hex');
+  return this.key;
+};
+
+consumerSchema.methods.generateSecret = function() {
+  this.secretHash = crypto.randomBytes(32).toString('hex');
+  return this.secretHash;
+};
+
+consumerSchema.methods.verifyKey = function(inputKey) {
+  const inputHash = crypto.createHash('sha256').update(inputKey).digest('hex');
+  return this.keyHash === inputHash;
+};
+
+consumerSchema.methods.verifySecret = function(inputSecret) {
+  if (!this.secretHash) return true;
+  return crypto.timingSafeEqual(
+    Buffer.from(this.secretHash),
+    Buffer.from(inputSecret)
+  );
+};
+
+consumerSchema.pre('save', function(next) {
+  if (this.isModified('key') && !this.keyHash) {
+    this.keyHash = crypto.createHash('sha256').update(this.key).digest('hex');
+  }
+  next();
+});
+
+consumerSchema.index({ workspaceId: 1, keyHash: 1 }, { unique: true });
 consumerSchema.index({ workspaceId: 1 });
 
 consumerSchema.methods.getUsage = async function(since = 24 * 3600000) {
