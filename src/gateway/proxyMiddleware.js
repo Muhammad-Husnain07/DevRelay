@@ -7,8 +7,9 @@ const { checkRateLimit, getRateLimitHeaders } = require('../services/rateLimitSe
 const matchRoute = (path, routes) => {
   const sorted = [...routes].sort((a, b) => a.priority - b.priority);
   for (const route of sorted) {
-    const pattern = route.path.endsWith('/') ? route.path : route.path + '/';
-    if (path.startsWith(pattern) || path === route.path) {
+    const routePath = route.path.replace(/^\//, '');
+    const pattern = routePath.endsWith('/') ? routePath : routePath + '/';
+    if (path.startsWith(pattern) || path === routePath || path.startsWith('/' + pattern)) {
       return route;
     }
   }
@@ -17,9 +18,7 @@ const matchRoute = (path, routes) => {
 
 const proxyRequest = async (req, res, route, requestId, consumerId) => {
   let upstreamPath = req.originalUrl.replace(/^\/gw\/[^\/]+/, '');
-  if (route.stripPath) {
-    upstreamPath = upstreamPath.replace(new RegExp(`^${route.path}`), '') || '/';
-  }
+  upstreamPath = upstreamPath.replace(new RegExp(`^${route.path}`), '') || '/';
 
   const upstreamUrl = `${route.upstream.url.replace(/\/$/, '')}${upstreamPath}`;
 
@@ -67,15 +66,18 @@ const proxyRequest = async (req, res, route, requestId, consumerId) => {
 };
 
 module.exports = async (req, res) => {
-  const slug = req.params.workspaceSlug;
-  const requestPath = req.originalUrl;
+  const urlMatch = req.originalUrl.match(/^\/gw\/([^\/]+)/);
+  const slug = urlMatch ? urlMatch[1] : null;
+
+  if (!slug) {
+    return res.status(400).json({ error: 'Workspace slug missing' });
+  }
 
   const routes = await GatewayRoute.find({ isActive: true }).populate('workspaceId', 'slug');
+  const filteredRoutes = routes.filter(r => r.workspaceId?.slug === slug);
 
-  const route = matchRoute(
-    requestPath.replace(/^\/gw\/[^\/]+\//, ''),
-    routes.filter(r => r.workspaceId?.slug === slug)
-  );
+  const pathAfterSlug = req.originalUrl.replace(/^\/gw\/[^\/]+\//, '');
+  const route = matchRoute(pathAfterSlug, filteredRoutes);
 
   if (!route) {
     return res.status(404).json({ error: 'No route found' });

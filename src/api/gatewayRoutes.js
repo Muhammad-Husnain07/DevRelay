@@ -7,7 +7,7 @@ const { authenticate } = require('../middleware/auth');
 const { resolveWorkspace } = require('../middleware/workspace');
 
 router.use(authenticate);
-router.param('workspaceSlug', resolveWorkspace);
+router.use('/:workspaceSlug', resolveWorkspace);
 
 /**
  * @swagger
@@ -54,12 +54,35 @@ router.delete('/:workspaceSlug/gateway/routes/:id', asyncHandler(async (req, res
 
 router.get('/:workspaceSlug/gateway/logs', asyncHandler(async (req, res) => {
   const workspace = res.locals.workspace;
-  const { routeId, since = 3600000, limit = 100, offset = 0 } = req.query;
-  const logs = await GatewayLog.find({
-    workspaceId: workspace._id,
-    createdAt: { $gte: new Date(Date.now() - parseInt(since)) }
-  }).sort({ createdAt: -1 }).skip(parseInt(offset)).limit(parseInt(limit));
-  res.json({ logs });
+  const { route: routePath, status: statusFilter, page = 1, limit = 50 } = req.query;
+  
+  const query = { workspaceId: workspace._id };
+  
+  if (routePath) {
+    query.path = { $regex: routePath, $options: 'i' };
+  }
+  
+  if (statusFilter) {
+    const statusCodes = statusFilter.split(',').map(s => {
+      const range = s.trim();
+      if (range === '2xx') return { $gte: 200, $lt: 300 };
+      if (range === '3xx') return { $gte: 300, $lt: 400 };
+      if (range === '4xx') return { $gte: 400, $lt: 500 };
+      if (range === '5xx') return { $gte: 500, $lt: 600 };
+      return parseInt(range);
+    });
+    if (statusCodes.length === 1) {
+      query.statusCode = statusCodes[0];
+    } else {
+      query.$or = statusCodes.map(s => ({ statusCode: s }));
+    }
+  }
+  
+  const skip = (parseInt(page) - 1) * parseInt(limit);
+  const logs = await GatewayLog.find(query).sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit));
+  const total = await GatewayLog.countDocuments(query);
+  
+  res.json({ logs, total, page: parseInt(page), limit: parseInt(limit) });
 }));
 
 router.get('/:workspaceSlug/gateway/stats', asyncHandler(async (req, res) => {
