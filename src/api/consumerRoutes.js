@@ -1,23 +1,52 @@
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 const Consumer = require('../models/Consumer');
 const asyncHandler = require('../utils/asyncHandler');
 const { authenticate } = require('../middleware/auth');
 const { resolveWorkspace } = require('../middleware/workspace');
 
 router.use(authenticate);
-router.param('workspaceSlug', resolveWorkspace);
+router.use('/:workspaceSlug', resolveWorkspace);
 
 router.get('/:workspaceSlug/gateway/consumers', asyncHandler(async (req, res) => {
   const workspace = res.locals.workspace;
-  const consumers = await Consumer.find({ workspaceId: workspace._id }).sort({ createdAt: -1 });
+  const consumers = await Consumer.find({ workspaceId: workspace._id }).select('-keyHash -secretHash').sort({ createdAt: -1 });
   res.json({ consumers });
 }));
 
 router.post('/:workspaceSlug/gateway/consumers', asyncHandler(async (req, res) => {
   const workspace = res.locals.workspace;
-  const consumer = await Consumer.create({ ...req.body, workspaceId: workspace._id });
-  res.status(201).json({ consumer });
+  const { name, description, isActive, rateLimits, quotas } = req.body;
+  
+  let key = req.body.key;
+  let secret = req.body.secret;
+  
+  if (!key) {
+    key = 'dk_' + crypto.randomBytes(16).toString('hex');
+  }
+  
+  const keyHash = crypto.createHash('sha256').update(key).digest('hex');
+  const secretHash = secret || crypto.randomBytes(32).toString('hex');
+  
+  const consumer = await Consumer.create({
+    workspaceId: workspace._id,
+    name,
+    key,
+    keyHash,
+    secret: secretHash,
+    secretHash,
+    description: description || '',
+    isActive: isActive !== false,
+    rateLimits: rateLimits || { requestsPerSecond: 10, requestsPerMinute: 100, requestsPerDay: 10000 },
+    quotas: quotas || { monthlyRequests: 100000, currentMonthCount: 0 }
+  });
+  
+  const response = consumer.toObject();
+  delete response.keyHash;
+  delete response.secretHash;
+  
+  res.status(201).json({ consumer: response });
 }));
 
 router.get('/:workspaceSlug/gateway/consumers/:id', asyncHandler(async (req, res) => {

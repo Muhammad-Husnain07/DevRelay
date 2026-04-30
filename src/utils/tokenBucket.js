@@ -41,10 +41,8 @@ const tokenBucket = async (key, capacity, refillRate, tokensRequested = 1) => {
     return { allowed, math.floor(tokens), retryAfter }
   `;
 
-  const [allowed, tokensRemaining, retryAfter] = await redisClient.eval(lua, {
-    keys: [key],
-    arguments: [now, capacity, refillRate, tokensRequested, windowMs]
-  });
+  const result = await redisClient.eval(lua, 1, key, now, capacity, refillRate, tokensRequested, windowMs);
+  const [allowed, tokensRemaining, retryAfter] = result;
 
   return {
     allowed: allowed === 1,

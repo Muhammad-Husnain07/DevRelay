@@ -123,6 +123,8 @@ export default function Dashboard() {
     enabled: !!workspace?.slug,
     staleTime: 10000
   });
+
+  
   
   const handleDeliverySuccess = (data) => {
     const item = {
@@ -157,11 +159,11 @@ export default function Dashboard() {
   useDeliveryEvents(handleDeliverySuccess, handleDeliveryFailed);
   useJobEvents(handleJobCompleted, null);
   
-  const queueData = live?.metrics ? [
-    { name: 'Webhook', count: live.metrics.webhookDelivery || 0 },
-    { name: 'Email', count: live.metrics.email || 0 },
-    { name: 'Generic', count: live.metrics.genericJob || 0 },
-    { name: 'Dead Letter', count: live.metrics.deadLetter || 0 }
+  const queueData = live?.data?.stats?.metrics ? [
+    { name: 'Webhook', count: live.data.stats.metrics.webhookDelivery || 0 },
+    { name: 'Email', count: live.data.stats.metrics.email || 0 },
+    { name: 'Generic', count: live.data.stats.metrics.genericJob || 0 },
+    { name: 'Dead Letter', count: live.data.stats.metrics.deadLetter || 0 }
   ] : [];
   
   if (isLoading) {
@@ -173,10 +175,10 @@ export default function Dashboard() {
   }
   
   const statCards = [
-    { label: 'Deliveries Today', value: summary?.deliveriesToday || 0, icon: TrendingUp, color: 'text-devrelay-green' },
-    { label: 'Jobs Processed', value: summary?.jobsProcessed || 0, icon: Briefcase, color: 'text-devrelay-blue' },
-    { label: 'Cron Jobs Active', value: summary?.cronJobsActive || 0, icon: Clock, color: 'text-devrelay-amber' },
-    { label: 'Gateway Requests', value: summary?.gatewayRequests || 0, icon: Network, color: 'text-purple-400' }
+    { label: 'Deliveries Today', value: summary?.data?.summary?.deliveriesToday || 0, icon: TrendingUp, color: 'text-devrelay-green' },
+    { label: 'Jobs Processed', value: summary?.data?.summary?.jobsProcessed || 0, icon: Briefcase, color: 'text-devrelay-blue' },
+    { label: 'Cron Jobs Active', value: summary?.data?.summary?.cronJobsActive || 0, icon: Clock, color: 'text-devrelay-amber' },
+    { label: 'Gateway Requests', value: summary?.data?.summary?.gatewayRequests || 0, icon: Network, color: 'text-purple-400' }
   ];
   
   return (
@@ -207,8 +209,10 @@ export default function Dashboard() {
                   borderRadius: '8px'
                 }}
                 labelStyle={{ color: '#c8ddd5' }}
+                itemStyle={{ color: '#00d482' }}
+                cursor={{ fill: 'rgba(0,212,130,0.1)' }}
               />
-              <Bar dataKey="count" fill="#00d482" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="count" fill="#00d482" radius={[6, 6, 0, 0]} activeBar={{ fill: '#00d482' }} />
             </BarChart>
           </ResponsiveContainer>
         </div>

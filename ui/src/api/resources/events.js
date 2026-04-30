@@ -27,5 +27,5 @@ export const deleteInbound = (slug, id) =>
 export const getInboundRequests = (slug, id, params) => 
   get(`/workspaces/${slug}/inbound/${id}/requests`, { params });
 
-export const getLiveStats = () => 
-  get('/live-stats');
+export const getLiveStats = (slug) => 
+  get(`/workspaces/${slug}/metrics/live`);

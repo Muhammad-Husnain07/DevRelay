@@ -21,7 +21,8 @@ const getLiveStats = async (workspaceId) => {
   const queueDepths = {};
 
   for (const name of queues) {
-    queueDepths[name] = await getQueueDepth(name);
+    const counts = await getQueueDepth(name);
+    queueDepths[name] = counts;
   }
 
   const deliveryCount = await redisClient.get(`metrics:${workspaceId}:deliveries`);
@@ -29,6 +30,12 @@ const getLiveStats = async (workspaceId) => {
   const emailCount = await redisClient.get(`metrics:${workspaceId}:emails`);
 
   return {
+    metrics: {
+      webhookDelivery: (queueDepths.webhook?.waiting || 0) + (queueDepths.webhook?.active || 0),
+      email: (queueDepths.email?.waiting || 0) + (queueDepths.email?.active || 0),
+      genericJob: (queueDepths.job?.waiting || 0) + (queueDepths.job?.active || 0),
+      deadLetter: (queueDepths.scheduler?.failed || 0) + (queueDepths.job?.failed || 0)
+    },
     queueDepths,
     deliveriesTotal: parseInt(deliveryCount || '0'),
     jobsTotal: parseInt(jobCount || '0'),
@@ -65,13 +72,22 @@ const getSummary = async (workspaceId) => {
   const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [daily, weekly, monthly] = await Promise.all([
+  const [daily, weekly, monthly, activeCronJobs, gatewayLogsToday] = await Promise.all([
     Metric.findOne({ workspaceId, date: { $gte: startOfDay } }),
     Metric.findOne({ workspaceId, date: { $gte: startOfWeek } }),
-    Metric.findOne({ workspaceId, date: { $gte: startOfMonth } })
+    Metric.findOne({ workspaceId, date: { $gte: startOfMonth } }),
+    require('../models/ScheduledJob').countDocuments({ workspaceId, isActive: true }),
+    require('../models/GatewayLog').countDocuments({ workspaceId, createdAt: { $gte: startOfDay } })
   ]);
 
+  const dailyDeliveries = daily?.deliveriesSuccess || daily?.deliveriesTotal || 0;
+  const dailyJobs = daily?.jobsSuccess || daily?.jobsTotal || 0;
+
   return {
+    deliveriesToday: dailyDeliveries,
+    jobsProcessed: dailyJobs,
+    cronJobsActive: activeCronJobs,
+    gatewayRequests: gatewayLogsToday,
     today: daily || { deliveriesTotal: 0, jobsTotal: 0, emailsSent: 0 },
     thisWeek: weekly || { deliveriesTotal: 0, jobsTotal: 0, emailsSent: 0 },
     thisMonth: monthly || { deliveriesTotal: 0, jobsTotal: 0, emailsSent: 0 }
