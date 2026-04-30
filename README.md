@@ -52,22 +52,40 @@ Self-hosted backend infrastructure platform — webhooks, job queues, cron sched
 | Email | Nodemailer + Ethereal |
 | Testing | Jest + Supertest |
 
-## Quick Start
+## Quick Start (5 Minutes)
 
+### Option 1: Automated Setup (Recommended)
 ```bash
-# Clone and start
+# Clone the project
 git clone https://github.com/Muhammad-Husnain07/DevRelay.git
 cd DevRelay
 
-# Start infrastructure
+# Run the easy setup script
+node scripts/setup.js
+```
+
+### Option 2: Manual Setup
+```bash
+# 1. Clone and enter directory
+git clone https://github.com/Muhammad-Husnain07/DevRelay.git
+cd DevRelay
+
+# 2. Copy environment file (already done - .env included)
+#    Edit .env if you want to customize settings
+
+# 3. Start all services
 docker compose up -d
 
-# Seed sample data (optional)
+# 4. Wait ~15 seconds for services to start, then seed demo data
 docker compose exec app node scripts/seed.js
 
-# Access
+# 5. Open in browser
 open http://localhost:3000
 ```
+
+### Default Login
+- **Email:** demo@devrelay.io
+- **Password:** demo123
 
 ## Environment Variables
 
@@ -227,6 +245,59 @@ await client.email.send('welcome', {
 [LogHandler] [info] Final test from scheduler!
 [GenericJobWorker] Job completed successfully
 ```
+
+## Troubleshooting
+
+### Common Issues
+
+**Containers won't start:**
+```bash
+# Check if ports are already in use
+docker compose ps
+
+# Check logs for errors
+docker compose logs app
+```
+
+**MongoDB connection refused:**
+```bash
+# Wait for MongoDB to be ready
+docker compose logs mongo
+
+# Restart services
+docker compose restart
+```
+
+**Redis connection issues:**
+```bash
+# Check Redis status
+docker compose exec redis redis-cli ping
+
+# Restart Redis
+docker compose restart redis
+```
+
+**Need to reset everything:**
+```bash
+# Stop all containers and remove volumes
+docker compose down -v
+
+# Start fresh
+docker compose up -d
+docker compose exec app node scripts/seed.js
+```
+
+### Useful Commands
+
+| Command | Description |
+|---------|-------------|
+| `docker compose up -d` | Start all services |
+| `docker compose down` | Stop all services |
+| `docker compose logs -f` | View live logs |
+| `docker compose logs -f app` | View app logs only |
+| `docker compose ps` | Check service status |
+| `docker compose exec app sh` | Shell into app container |
+| `docker compose restart` | Restart all services |
 
 ## License
 
