@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
-const { execSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+const { execSync } = require("child_process");
+const fs = require("fs");
+const path = require("path");
 
-const GREEN = '\x1b[32m';
-const YELLOW = '\x1b[33m';
-const RED = '\x1b[31m';
-const RESET = '\x1b[0m';
+const GREEN = "\x1b[32m";
+const YELLOW = "\x1b[33m";
+const RED = "\x1b[31m";
+const RESET = "\x1b[0m";
 
 function log(msg, color = RESET) {
   console.log(`${color}${msg}${RESET}`);
@@ -20,7 +20,7 @@ function step(num, desc) {
 function run(cmd, options = {}) {
   try {
     log(`Running: ${cmd}`, YELLOW);
-    execSync(cmd, { stdio: 'inherit', ...options });
+    execSync(cmd, { stdio: "inherit", ...options });
     return true;
   } catch (err) {
     log(`Error: ${err.message}`, RED);
@@ -29,118 +29,132 @@ function run(cmd, options = {}) {
 }
 
 function checkDocker() {
-  step('1', 'Checking Docker...');
+  step("1", "Checking Docker...");
   try {
-    execSync('docker --version', { stdio: 'ignore' });
-    log('Docker is installed', GREEN);
+    execSync("docker --version", { stdio: "ignore" });
+    log("Docker is installed", GREEN);
     return true;
   } catch {
-    log('Docker is not installed. Please install Docker Desktop first.', RED);
-    log('Download from: https://www.docker.com/products/docker-desktop/', YELLOW);
+    log("Docker is not installed. Please install Docker Desktop first.", RED);
+    log(
+      "Download from: https://www.docker.com/products/docker-desktop/",
+      YELLOW,
+    );
     return false;
   }
 }
 
 function checkEnvFile() {
-  step('2', 'Setting up environment...');
-  const envExample = path.join(__dirname, '..', '.env.example');
-  const envFile = path.join(__dirname, '..', '.env');
+  step("2", "Setting up environment...");
+  const envExample = path.join(__dirname, "..", ".env.example");
+  const envFile = path.join(__dirname, "..", ".env");
 
   if (!fs.existsSync(envFile)) {
     if (fs.existsSync(envExample)) {
       fs.copyFileSync(envExample, envFile);
-      log('Created .env file from .env.example', GREEN);
-      log('Please edit .env file with your settings', YELLOW);
+      log("Created .env file from .env.example", GREEN);
+      log("Please edit .env file with your settings", YELLOW);
     } else {
-      log('.env.example not found', RED);
+      log(".env.example not found", RED);
       return false;
     }
   } else {
-    log('.env file already exists', GREEN);
+    log(".env file already exists", GREEN);
   }
 
   // Warn if using default JWT secret
-  const envContent = fs.readFileSync(envFile, 'utf8');
-  if (envContent.includes('your-super-secret-jwt-key')) {
-    log('WARNING: You should change JWT_SECRET in .env for production!', RED);
+  const envContent = fs.readFileSync(envFile, "utf8");
+  if (envContent.includes("your-super-secret-jwt-key")) {
+    log("WARNING: You should change JWT_SECRET in .env for production!", RED);
   }
 
   return true;
 }
 
-function startInfrastructure() {
-  step('3', 'Starting infrastructure (MongoDB & Redis)...');
-  
-  log('Starting Docker containers...', YELLOW);
-  if (!run('docker compose up -d mongo redis', { cwd: path.join(__dirname, '..') })) {
+async function startInfrastructure() {
+  step("3", "Starting infrastructure (MongoDB & Redis)...");
+
+  log("Starting Docker containers...", YELLOW);
+  if (
+    !run("docker compose up -d mongo redis", {
+      cwd: path.join(__dirname, ".."),
+    })
+  ) {
     return false;
   }
 
-  log('Waiting for services to be ready...', YELLOW);
-  execSync('sleep 10');
+  log("Waiting for services to be ready...", YELLOW);
+  await new Promise((resolve) => setTimeout(resolve, 10000));
 
   // Check MongoDB
-  log('Checking MongoDB...', YELLOW);
+  log("Checking MongoDB...", YELLOW);
   try {
-    execSync('docker compose exec -T mongo mongosh --quiet devrelay --eval "db.adminCommand(\'ping\')"', { 
-      cwd: path.join(__dirname, '..'),
-      stdio: 'ignore'
-    });
-    log('MongoDB is ready', GREEN);
+    execSync(
+      "docker compose exec -T mongo mongosh --quiet devrelay --eval \"db.adminCommand('ping')\"",
+      {
+        cwd: path.join(__dirname, ".."),
+        stdio: "ignore",
+      },
+    );
+    log("MongoDB is ready", GREEN);
   } catch {
-    log('MongoDB not ready yet, continuing...', YELLOW);
+    log("MongoDB not ready yet, continuing...", YELLOW);
   }
 
   // Check Redis
-  log('Checking Redis...', YELLOW);
+  log("Checking Redis...", YELLOW);
   try {
-    execSync('docker compose exec -T redis redis-cli ping', { 
-      cwd: path.join(__dirname, '..'),
-      stdio: 'ignore'
+    execSync("docker compose exec -T redis redis-cli ping", {
+      cwd: path.join(__dirname, ".."),
+      stdio: "ignore",
     });
-    log('Redis is ready', GREEN);
+    log("Redis is ready", GREEN);
   } catch {
-    log('Redis not ready yet, continuing...', YELLOW);
+    log("Redis not ready yet, continuing...", YELLOW);
   }
 
   return true;
 }
 
-function seedDatabase() {
-  step('4', 'Seeding database with demo data...');
+async function seedDatabase() {
+  step("4", "Seeding database with demo data...");
 
   // Start app container to run seed
-  log('Building and starting app...', YELLOW);
-  if (!run('docker compose up -d app --build', { cwd: path.join(__dirname, '..') })) {
+  log("Building and starting app...", YELLOW);
+  if (
+    !run("docker compose up -d app --build", {
+      cwd: path.join(__dirname, ".."),
+    })
+  ) {
     return false;
   }
 
-  log('Waiting for app to be ready...', YELLOW);
-  execSync('sleep 15');
+  log("Waiting for app to be ready...", YELLOW);
+  await new Promise((resolve) => setTimeout(resolve, 15000));
 
   // Check if seed script exists
-  const seedScript = path.join(__dirname, '..', 'scripts', 'seed.js');
+  const seedScript = path.join(__dirname, "..", "scripts", "seed.js");
   if (fs.existsSync(seedScript)) {
-    log('Running seed script...', YELLOW);
+    log("Running seed script...", YELLOW);
     try {
-      execSync('docker compose exec -T app node scripts/seed.js', { 
-        cwd: path.join(__dirname, '..'),
-        stdio: 'inherit'
+      execSync("docker compose exec -T app node scripts/seed.js", {
+        cwd: path.join(__dirname, ".."),
+        stdio: "inherit",
       });
-      log('Database seeded successfully', GREEN);
+      log("Database seeded successfully", GREEN);
     } catch {
-      log('Seed script may have already run or failed', YELLOW);
+      log("Seed script may have already run or failed", YELLOW);
     }
   } else {
-    log('Seed script not found, skipping...', YELLOW);
+    log("Seed script not found, skipping...", YELLOW);
   }
 
   return true;
 }
 
 function showNextSteps() {
-  step('5', 'Setup Complete!');
-  
+  step("5", "Setup Complete!");
+
   console.log(`
 ${GREEN}════════════════════════════════════════════════════════════${RESET}
                     DevRelay is Ready!
@@ -173,14 +187,14 @@ ${YELLOW}For more info, check README.md${RESET}
 }
 
 async function main() {
-  log('════════════════════════════════════════════════════════════');
-  log('              DevRelay Easy Setup Script');
-  log('════════════════════════════════════════════════════════════');
+  log("════════════════════════════════════════════════════════════");
+  log("              DevRelay Easy Setup Script");
+  log("════════════════════════════════════════════════════════════");
 
   if (!checkDocker()) process.exit(1);
   if (!checkEnvFile()) process.exit(1);
-  if (!startInfrastructure()) process.exit(1);
-  if (!seedDatabase()) process.exit(1);
+  if (!(await startInfrastructure())) process.exit(1);
+  if (!(await seedDatabase())) process.exit(1);
 
   showNextSteps();
 }
